@@ -1,7 +1,7 @@
 /*
  * Copyright 2012 Cameron Zemek <grom358@gmail.com>.
  */
-package org.cordacodeclub;
+package org.cordacodeclub.grom358;
 
 import java.util.Collection;
 import java.util.Iterator;
