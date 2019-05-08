@@ -46,35 +46,43 @@ class TokenContract : Contract {
             is Commands.Mint -> requireThat {
                 "There should be no input TokenState when Minting" using (inputTokenCount == 0)
                 "There should be no input PotState when Minting" using (inputPotCount == 0)
+                "There should have at least one output TokenState when Minting" using (outputTokenCount > 0)
                 "There should be no output PotState when Minting" using (outputPotCount == 0)
                 "The minter should sign when Minting" using (command.signers.contains(minters.single().owningKey))
             }
 
             is Commands.Transfer -> requireThat {
+                "There should be at least one input TokenState when Transferring" using (inputTokenCount > 0)
                 "There should be no input PotState when Transferring" using (inputPotCount == 0)
+                "There should be at least one output TokenState when Transferring" using (outputTokenCount > 0)
                 "There should be no output PotState when Transferring" using (outputPotCount == 0)
                 "There should be the same amount in and out when Transferring" using (inAmount == outAmount)
                 "Input owners should sign when Transferring" using (command.signers.containsAll(inOwners.map { it.owningKey }))
             }
 
             is Commands.BetToPot -> requireThat {
+                "There should be at least one input TokenState when Betting" using (inputTokenCount > 0)
                 "There should be no input PotState when Betting" using (inputPotCount == 0)
                 "There should be no output TokenState when Betting" using (outputTokenCount == 0)
+                "There should be at least one output PotState when Betting" using (outputPotCount > 0)
                 "There should be the same amount in and out when Betting" using (inAmount == outAmount)
                 "Input owners should sign when Betting" using (command.signers.containsAll(inOwners.map { it.owningKey }))
             }
 
             is Commands.Win -> requireThat {
                 "There should be no input TokenState when Winning" using (inputTokenCount == 0)
+                "There should be at least one input PotState when Winning" using (inputPotCount > 0)
+                "There should be at least one output TokenState when Winning" using (outputTokenCount > 0)
                 "There should be no output PotState when Winning" using (outputPotCount == 0)
                 "There should be the same amount in and out when Winning" using (inAmount == outAmount)
                 // There should be something more to make sure it is only on a real win.
             }
 
             is Commands.Burn -> requireThat {
+                "There should be at least one input TokenState when Burning" using (inputTokenCount > 0)
                 "There should be no input PotState when Burning" using (inputPotCount == 0)
-                "There should be no output PotState when Burning" using (outputPotCount == 0)
                 "There should be no output TokenState when Burning" using (outputTokenCount == 0)
+                "There should be no output PotState when Burning" using (outputPotCount == 0)
                 "Input owners should sign when Burning" using (command.signers.containsAll(inOwners.map { it.owningKey }))
                 "The minter should sign when Burning" using (command.signers.contains(minters.single().owningKey))
             }
