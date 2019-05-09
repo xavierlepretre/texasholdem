@@ -5,8 +5,10 @@ package org.cordacodeclub.grom358;
 
 import org.cordacodeclub.grom356.Card;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * Pocket cards in Texas Holdem
@@ -68,8 +70,8 @@ public class Pocket {
         return getGap() == 1;
     }
 
-    public CardList toList() {
-        CardList cardList = new CardList();
+    public List<Card> toList() {
+        List<Card> cardList = new ArrayList<Card>();
         cardList.add(first);
         cardList.add(second);
         return cardList;

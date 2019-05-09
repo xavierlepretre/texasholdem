@@ -16,16 +16,16 @@ import java.util.regex.Pattern;
  *
  * @author Cameron Zemek <grom358@gmail.com>
  */
-public class CardList extends ArrayList<Card> {
-    public CardList() {
+public class CardList2 extends ArrayList<Card> {
+    public CardList2() {
         super();
     }
 
-    public CardList(int initialCapacity) {
+    public CardList2(int initialCapacity) {
         super(initialCapacity);
     }
 
-    public CardList(Collection<Card> cards) {
+    public CardList2(Collection<Card> cards) {
         super(cards);
     }
 
@@ -47,9 +47,9 @@ public class CardList extends ArrayList<Card> {
 
     static final private Pattern listPattern = Pattern.compile("[0-9TJQKA][cdhs]");
 
-    static public CardList valueOf(String str) {
+    static public CardList2 valueOf(String str) {
         Matcher matcher = listPattern.matcher(str);
-        CardList cardList = new CardList();
+        CardList2 cardList = new CardList2();
         while (matcher.find()) {
             Card card = Card.valueOf(matcher.group());
             cardList.add(card);

@@ -5,7 +5,9 @@ package org.cordacodeclub.grom358;
 
 import org.cordacodeclub.grom356.Card;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * A set of poker cards
@@ -75,12 +77,12 @@ public final class CardSet {
         return Long.numberOfTrailingZeros(word);
     }
 
-    public CardList toList() {
+    public List<Card> toList() {
         return subList(size());
     }
 
-    CardList subList(int max) {
-        CardList cards = new CardList(max);
+    List<Card> subList(int max) {
+        List<Card> cards = new ArrayList<Card>(max);
         for (int i = nextSetBit(0); i >= 0; i = nextSetBit(i + 1)) {
             cards.add(Card.valueOf(i));
             if (cards.size() >= max) {

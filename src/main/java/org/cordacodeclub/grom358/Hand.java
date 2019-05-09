@@ -6,6 +6,7 @@ package org.cordacodeclub.grom358;
 import org.cordacodeclub.grom356.Card;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * A poker hand.
@@ -26,10 +27,10 @@ public class Hand implements Comparable<Hand> {
     }
 
     private Category category;
-    private CardList cardList;
+    private List<Card> cardList;
     private int handValue;
 
-    private Hand(Category category, CardList cardList, int handValue) {
+    private Hand(Category category, List<Card> cardList, int handValue) {
         this.category = category;
         this.cardList = cardList;
         this.handValue = handValue;
@@ -39,7 +40,7 @@ public class Hand implements Comparable<Hand> {
         return category;
     }
 
-    public CardList getCards() {
+    public List<Card> getCards() {
         return cardList;
     }
 
@@ -69,7 +70,7 @@ public class Hand implements Comparable<Hand> {
     static private final long SUIT_MASK = 0x1111111111111L;
     static private final long RANK_MASK = 0xFL;
 
-    static private Hand handValue(Category category, CardList cardList) {
+    static private Hand handValue(Category category, List<Card> cardList) {
         int value = category.ordinal() << 4;
         int i = 0;
         int n = Math.min(5, cardList.size());
@@ -107,7 +108,7 @@ public class Hand implements Comparable<Hand> {
             test = val & mask;
             if (test == mask) {
                 CardSet handSet = new CardSet(test);
-                CardList cardList = handSet.toList();
+                List<Card> cardList = handSet.toList();
                 cardList.add(cardList.remove(0)); // Make the ace low
                 return handValue(Category.STRAIGHT_FLUSH, cardList);
             }
@@ -126,7 +127,7 @@ public class Hand implements Comparable<Hand> {
         if (fourOfKind != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(fourOfKind);
             CardSet kickers = new CardSet(val & ~mask);
-            CardList hand = (new CardSet(mask)).toList();
+            List<Card> hand = (new CardSet(mask)).toList();
             hand.add(kickers.toList().get(0));
             return handValue(Category.FOUR_OF_A_KIND, hand);
         }
@@ -161,7 +162,7 @@ public class Hand implements Comparable<Hand> {
         }
 
         if (threeOfKind != null && topPair != null) {
-            CardList hand = threeOfKind.toList();
+            List<Card> hand = threeOfKind.toList();
             hand.addAll(topPair.toList());
             return handValue(Category.FULLHOUSE, hand);
         }
@@ -199,14 +200,14 @@ public class Hand implements Comparable<Hand> {
             if (test != 0) {
                 straight |= Long.lowestOneBit(test);
                 CardSet handSet = new CardSet(straight);
-                CardList cardList = handSet.toList();
+                List<Card> cardList = handSet.toList();
                 cardList.add(cardList.remove(0)); // Make the ace low
                 return handValue(Category.STRAIGHT, cardList);
             }
         }
 
         if (threeOfKind != null) {
-            CardList hand = threeOfKind.toList();
+            List<Card> hand = threeOfKind.toList();
             CardSet ks = new CardSet(cs);
             ks.subtract(threeOfKind);
             hand.addAll(ks.subList(2));
@@ -214,7 +215,7 @@ public class Hand implements Comparable<Hand> {
         }
 
         if (topPair != null && secondPair != null) {
-            CardList hand = topPair.toList();
+            List<Card> hand = topPair.toList();
             hand.addAll(secondPair.toList());
             CardSet ks = new CardSet(cs);
             ks.subtract(topPair);
@@ -224,7 +225,7 @@ public class Hand implements Comparable<Hand> {
         }
 
         if (topPair != null) {
-            CardList hand = topPair.toList();
+            List<Card> hand = topPair.toList();
             CardSet ks = new CardSet(cs);
             ks.subtract(topPair);
             hand.addAll(ks.subList(3));
