@@ -11,7 +11,7 @@ import java.util.List;
  *
  * @author Cameron Zemek <grom358@gmail.com>
  */
-public final class Card implements Comparable<Card> {
+public final class Card2 implements Comparable<Card2> {
     static public enum Suit {
         SPADE,
         HEART,
@@ -95,7 +95,7 @@ public final class Card implements Comparable<Card> {
     private final Suit suit;
     private final Rank rank;
 
-    private Card(Rank rank, Suit suit) {
+    private Card2(Rank rank, Suit suit) {
         this.rank = rank;
         this.suit = suit;
     }
@@ -127,7 +127,7 @@ public final class Card implements Comparable<Card> {
     }
 
     @Override
-    public int compareTo(Card o) {
+    public int compareTo(Card2 o) {
         return this.intValue() - o.intValue();
     }
 
@@ -136,25 +136,25 @@ public final class Card implements Comparable<Card> {
         return "" + rank.getLetter() + suit.getLetter();
     }
 
-    static private final List<Card> protoDeck = new ArrayList<>();
+    static private final List<Card2> protoDeck = new ArrayList<>();
 
     // Initialize prototype deck
     static {
         for (Rank rank : Rank.values()) {
             for (Suit suit : Suit.values()) {
-                protoDeck.add(new Card(rank, suit));
+                protoDeck.add(new Card2(rank, suit));
             }
         }
     }
 
-    static public Card valueOf(int index) {
+    static public Card2 valueOf(int index) {
         if (index < 0 || index > protoDeck.size()) {
             throw new IllegalArgumentException("Invalid card; index=" + index);
         }
         return protoDeck.get(index);
     }
 
-    static public Card valueOf(long num) {
+    static public Card2 valueOf(long num) {
         int index;
         if (num == 0) {
             index = 0;
@@ -167,12 +167,12 @@ public final class Card implements Comparable<Card> {
         return valueOf(index);
     }
 
-    static public Card valueOf(Rank rank, Suit suit) {
-        int index = (new Card(rank, suit)).intValue();
+    static public Card2 valueOf(Rank rank, Suit suit) {
+        int index = (new Card2(rank, suit)).intValue();
         return valueOf(index);
     }
 
-    static public Card valueOf(String card) {
+    static public Card2 valueOf(String card) {
         if (card.length() != 2) {
             throw new IllegalArgumentException("Invalid card format");
         }
@@ -181,7 +181,7 @@ public final class Card implements Comparable<Card> {
         return valueOf(Rank.valueOf(rank), Suit.valueOf(suit));
     }
 
-    static public List<Card> newDeck() {
+    static public List<Card2> newDeck() {
         return new ArrayList<>(protoDeck); // Return copy of prototype deck
     }
 }

@@ -3,6 +3,8 @@
  */
 package org.cordacodeclub.grom358;
 
+import org.cordacodeclub.grom356.Card;
+
 import java.util.Collection;
 
 /**
@@ -31,11 +33,11 @@ public final class CardSet {
     }
 
     public boolean contains(Card c) {
-        return (bitset & c.longValue()) != 0;
+        return (bitset & c.getLongValue()) != 0;
     }
 
     public void add(Card c) {
-        bitset |= c.longValue();
+        bitset |= c.getLongValue();
     }
 
     public void addAll(Collection<Card> cards) {

@@ -3,6 +3,8 @@
  */
 package org.cordacodeclub.grom358;
 
+import org.cordacodeclub.grom356.Card;
+
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -22,7 +24,7 @@ public class Pocket {
         Iterator<Card> it = cards.iterator();
         Card first = it.next();
         Card second = it.next();
-        if (first.rankValue() < second.rankValue()) {
+        if (first.getRankValue() < second.getRankValue()) {
             this.first = second;
             this.second = first;
         } else {
@@ -33,7 +35,7 @@ public class Pocket {
 
     public Pocket(Card first, Card second) {
         // Make first the highest card
-        if (first.rankValue() < second.rankValue()) {
+        if (first.getRankValue() < second.getRankValue()) {
             this.first = second;
             this.second = first;
         } else {

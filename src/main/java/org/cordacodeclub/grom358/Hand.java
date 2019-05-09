@@ -3,6 +3,8 @@
  */
 package org.cordacodeclub.grom358;
 
+import org.cordacodeclub.grom356.Card;
+
 import java.util.Collection;
 
 /**
@@ -73,7 +75,7 @@ public class Hand implements Comparable<Hand> {
         int n = Math.min(5, cardList.size());
         for (; i < n; ++i) {
             Card card = cardList.get(i);
-            value = (value << 4) | card.rankValue();
+            value = (value << 4) | card.getRankValue();
         }
         for (; i < 5; ++i) {
             value <<= 4;
@@ -90,7 +92,7 @@ public class Hand implements Comparable<Hand> {
         long test, mask;
 
         // Straight flush
-        for (int i = 0, n = (Card.Rank.size * Card.Suit.size) - (4 * Card.Suit.size);
+        for (int i = 0, n = (Card.Rank.getSize() * Card.Suit.getSize()) - (4 * Card.Suit.getSize());
                 i < n; ++i) {
             mask = STRAIGHT_FLUSH_MASK << i;
             test = val & mask;
@@ -100,7 +102,7 @@ public class Hand implements Comparable<Hand> {
         }
 
         // Ace low straight flush
-        for (int i = 0, n = Card.Suit.size; i < n; ++i) {
+        for (int i = 0, n = Card.Suit.getSize(); i < n; ++i) {
             mask = ACE_LOW_STRAIGHT_FLUSH_MASK << i;
             test = val & mask;
             if (test == mask) {
@@ -165,7 +167,7 @@ public class Hand implements Comparable<Hand> {
         }
 
         // Search for flush
-        for (int i = 0, n = Card.Suit.size; i < n; ++i) {
+        for (int i = 0, n = Card.Suit.getSize(); i < n; ++i) {
             mask = SUIT_MASK << i;
             test = val & mask;
             int cardCount = Long.bitCount(test);
@@ -177,8 +179,8 @@ public class Hand implements Comparable<Hand> {
         // Search for straight
         int straightLength = 0;
         long straight = 0;
-        for (int i = 0, n = Card.Rank.size; i < n; ++i) {
-            mask = RANK_MASK << (i * Card.Suit.size);
+        for (int i = 0, n = Card.Rank.getSize(); i < n; ++i) {
+            mask = RANK_MASK << (i * Card.Suit.getSize());
             test = val & mask;
             if (test != 0) {
                 straightLength++;

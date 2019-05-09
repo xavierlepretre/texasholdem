@@ -3,6 +3,8 @@
  */
 package org.cordacodeclub.grom358;
 
+import org.cordacodeclub.grom356.Card;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
