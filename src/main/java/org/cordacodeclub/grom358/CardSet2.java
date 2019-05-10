@@ -14,22 +14,22 @@ import java.util.List;
  *
  * @author Cameron Zemek <grom358@gmail.com>
  */
-public final class CardSet {
+public final class CardSet2 {
     private long bitset;
 
-    public CardSet() {
+    public CardSet2() {
         bitset = 0;
     }
 
-    CardSet(long val) {
+    CardSet2(long val) {
         bitset = val;
     }
 
-    public CardSet(CardSet cs) {
+    public CardSet2(CardSet2 cs) {
         bitset = cs.bitset;
     }
 
-    public CardSet(Collection<Card> cards) {
+    public CardSet2(Collection<Card> cards) {
         bitset = 0;
         addAll(cards);
     }
@@ -48,15 +48,15 @@ public final class CardSet {
         }
     }
 
-    public void intersect(CardSet cs) {
+    public void intersect(CardSet2 cs) {
         bitset &= cs.bitset;
     }
 
-    public void union(CardSet cs) {
+    public void union(CardSet2 cs) {
         bitset |= cs.bitset;
     }
 
-    public void subtract(CardSet cs) {
+    public void subtract(CardSet2 cs) {
         bitset &= ~cs.bitset;
     }
 

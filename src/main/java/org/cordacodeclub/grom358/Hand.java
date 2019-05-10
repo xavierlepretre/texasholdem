@@ -4,6 +4,7 @@
 package org.cordacodeclub.grom358;
 
 import org.cordacodeclub.grom356.Card;
+import org.cordacodeclub.grom356.CardSet;
 
 import java.util.Collection;
 import java.util.List;
