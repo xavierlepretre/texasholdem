@@ -15,11 +15,11 @@ import java.util.List;
  *
  * @author Cameron Zemek <grom358@gmail.com>
  */
-public class Pocket {
+public class Pocket2 {
     private Card first;
     private Card second;
 
-    public Pocket(Collection<Card> cards) {
+    public Pocket2(Collection<Card> cards) {
         if (cards.size() < 2) {
             throw new IllegalArgumentException("Cards is too small to create pocket with");
         }
@@ -35,7 +35,7 @@ public class Pocket {
         }
     }
 
-    public Pocket(Card first, Card second) {
+    public Pocket2(Card first, Card second) {
         // Make first the highest card
         if (first.getRankValue() < second.getRankValue()) {
             this.first = second;
