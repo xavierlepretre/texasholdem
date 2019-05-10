@@ -3,6 +3,8 @@
  */
 package org.cordacodeclub.grom356
 
+import java.util.regex.Pattern
+
 /**
  * A list of poker cards
  *
@@ -12,20 +14,24 @@ class CardList {
 
     companion object {
 
-        fun Iterator<Card>.toString() = with(StringBuilder()) {
-            append('[')
-            if (hasNext()) {
-                append("${next()}")
-                forEachRemaining { append(",$it") }
+        fun Sequence<Card>.toString() =
+            joinTo(buffer = StringBuilder(), prefix = "[", separator = ",", postfix = "]")
+                .toString()
+
+        private val listPattern = Pattern.compile("[0-9TJQKA][cdhs]")
+
+        @JvmStatic
+        fun valueOf(str: String): List<Card> {
+            val matcher = listPattern.matcher(str)
+            val cardList = mutableListOf<Card>()
+            while (matcher.find()) {
+                val group = matcher.group()
+                println(group)
+                val card = Card.valueOf(group)
+                cardList.add(card)
             }
-            append(']')
-            toString()
+            return cardList
         }
 
-        private val listPattern = Regex.fromLiteral("[0-9TJQKA][cdhs]")
-
-        fun valueOf(str: String) = listPattern.findAll(str).map {
-            Card.valueOf(it.groupValues[0])
-        }.toList()
     }
 }
