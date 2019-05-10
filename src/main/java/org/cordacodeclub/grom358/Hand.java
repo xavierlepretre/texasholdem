@@ -95,7 +95,7 @@ public class Hand implements Comparable<Hand> {
 
         // Straight flush
         for (int i = 0, n = (Card.Rank.getSize() * Card.Suit.getSize()) - (4 * Card.Suit.getSize());
-                i < n; ++i) {
+             i < n; ++i) {
             mask = STRAIGHT_FLUSH_MASK << i;
             test = val & mask;
             if (test == mask) {
@@ -135,15 +135,15 @@ public class Hand implements Comparable<Hand> {
 
         // Triples & Pairs
         long triples = (clubs & diamonds & hearts) |
-            (clubs & diamonds & spades) |
-            (clubs & hearts & spades) |
-            (diamonds & hearts & spades);
+                (clubs & diamonds & spades) |
+                (clubs & hearts & spades) |
+                (diamonds & hearts & spades);
         long sets = (clubs & diamonds) |
-            (clubs & hearts) |
-            (clubs & spades) |
-            (diamonds & hearts) |
-            (diamonds & spades) |
-            (hearts & spades);
+                (clubs & hearts) |
+                (clubs & spades) |
+                (diamonds & hearts) |
+                (diamonds & spades) |
+                (hearts & spades);
         if (triples != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(triples);
             test = val & mask;
@@ -324,33 +324,33 @@ public class Hand implements Comparable<Hand> {
             return FOUR_OF_A_KIND |
                     (fourOfAKindRank << 16) |
                     (fourOfAKindRank << 12) |
-                    (fourOfAKindRank << 8)  |
-                    (fourOfAKindRank << 4)  |
+                    (fourOfAKindRank << 8) |
+                    (fourOfAKindRank << 4) |
                     kicker;
         }
 
         // Fullhouse
         long triples = (clubs & diamonds & hearts) |
-            (clubs & diamonds & spades) |
-            (clubs & hearts & spades) |
-            (diamonds & hearts & spades);
+                (clubs & diamonds & spades) |
+                (clubs & hearts & spades) |
+                (diamonds & hearts & spades);
         long triple = Long.lowestOneBit(triples);
         int tripleRank = triple == 0 ? 0 : encodeRanks(triple, 1);
         long sets = (clubs & diamonds) |
-            (clubs & hearts) |
-            (clubs & spades) |
-            (diamonds & hearts) |
-            (diamonds & spades) |
-            (hearts & spades);
+                (clubs & hearts) |
+                (clubs & spades) |
+                (diamonds & hearts) |
+                (diamonds & spades) |
+                (hearts & spades);
         int setCount = Long.bitCount(sets);
         if (triple != 0 && setCount >= 2) {
             int topPairRank = encodeRanks(sets & ~triple, 1);
             return FULLHOUSE |
-                (tripleRank << 16) |
-                (tripleRank << 12) |
-                (tripleRank << 8)  |
-                (topPairRank << 4) |
-                topPairRank;
+                    (tripleRank << 16) |
+                    (tripleRank << 12) |
+                    (tripleRank << 8) |
+                    (topPairRank << 4) |
+                    topPairRank;
         }
 
         // Flush
@@ -382,10 +382,10 @@ public class Hand implements Comparable<Hand> {
         if (triple != 0) {
             long kickers = ranks & ~triple;
             return THREE_OF_A_KIND |
-                (tripleRank << 16) |
-                (tripleRank << 12) |
-                (tripleRank << 8)  |
-                encodeRanks(kickers, 2);
+                    (tripleRank << 16) |
+                    (tripleRank << 12) |
+                    (tripleRank << 8) |
+                    encodeRanks(kickers, 2);
         }
 
         // Two pair

@@ -26,7 +26,6 @@ class CardList {
             val cardList = mutableListOf<Card>()
             while (matcher.find()) {
                 val group = matcher.group()
-                println(group)
                 val card = Card.valueOf(group)
                 cardList.add(card)
             }
