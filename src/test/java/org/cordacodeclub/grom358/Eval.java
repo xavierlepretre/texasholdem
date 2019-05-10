@@ -1,9 +1,11 @@
-package org.cordacodeclub.grom358;/*
+/*
  * Copyright 2012 Cameron Zemek <grom358@gmail.com>.
  */
+package org.cordacodeclub.grom358;
 
 import org.cordacodeclub.grom356.Card;
 import org.cordacodeclub.grom356.CardList;
+import org.cordacodeclub.grom356.CardSet;
 import org.junit.Test;
 
 import java.util.List;
@@ -11,7 +13,6 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 /**
- *
  * @author grom
  */
 public class Eval {
@@ -21,7 +22,7 @@ public class Eval {
 
     private void assertCategory(Hand.Category category, String cards) {
         List<Card> cardList = CardList.valueOf(cards);
-        CardSet2 cs = new CardSet2(cardList);
+        CardSet cs = new CardSet(cardList);
         Hand hand = Hand.eval(cs);
         assertEquals(cards, category, hand.getCategory());
     }
@@ -45,7 +46,7 @@ public class Eval {
     public void aceLowStraightFlush() {
         List<Card> aceLow = CardList.valueOf("[Ah,2h,3h,4h,5h]");
         List<Card> sixHigh = CardList.valueOf("[2h,3h,4h,5h,6h]");
-        assertTrue(Hand.eval(new CardSet2(aceLow)).getValue() < Hand.eval(new CardSet2(sixHigh)).getValue());
+        assertTrue(Hand.eval(new CardSet(aceLow)).getValue() < Hand.eval(new CardSet(sixHigh)).getValue());
     }
 
     @Test
@@ -79,7 +80,7 @@ public class Eval {
     public void aceLowStraight() {
         List<Card> aceLow = CardList.valueOf("[Ah,2d,3h,4s,5c]");
         List<Card> sixHigh = CardList.valueOf("[2d,3h,4s,5h,6c]");
-        assertTrue(Hand.eval(new CardSet2(aceLow)).getValue() < Hand.eval(new CardSet2(sixHigh)).getValue());
+        assertTrue(Hand.eval(new CardSet(aceLow)).getValue() < Hand.eval(new CardSet(sixHigh)).getValue());
     }
 
     @Test
@@ -111,7 +112,7 @@ public class Eval {
                         for (int e = d + 1; e < 50; ++e) {
                             for (int f = e + 1; f < 51; ++f) {
                                 for (int g = f + 1; g < 52; ++g) {
-                                    CardSet2 cards = new CardSet2();
+                                    CardSet cards = new CardSet();
                                     cards.add(Card.valueOf(a));
                                     cards.add(Card.valueOf(b));
                                     cards.add(Card.valueOf(c));
