@@ -68,6 +68,7 @@ class CardSet : Set<Card> {
     override fun iterator(): Iterator<Card> = CardIterator(0)
 
     fun toList() = subList(size)
+    fun toMutableList() = toList().toMutableList()
 
     fun subList(max: Int) = CardIterator(0, max).asSequence()
         .toList()

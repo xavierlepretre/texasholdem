@@ -6,6 +6,7 @@ package org.cordacodeclub.grom358;
 import org.cordacodeclub.grom356.Card;
 import org.cordacodeclub.grom356.CardList;
 import org.cordacodeclub.grom356.CardSet;
+import org.cordacodeclub.grom356.Hand;
 import org.junit.Test;
 
 import java.util.List;

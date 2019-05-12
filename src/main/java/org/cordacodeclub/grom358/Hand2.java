@@ -14,7 +14,7 @@ import java.util.List;
  *
  * @author Cameron Zemek <grom358@gmail.com>
  */
-public class Hand implements Comparable<Hand> {
+public class Hand2 implements Comparable<Hand2> {
     static public enum Category {
         HIGH_CARD,
         PAIR,
@@ -31,7 +31,7 @@ public class Hand implements Comparable<Hand> {
     private List<Card> cardList;
     private int handValue;
 
-    private Hand(Category category, List<Card> cardList, int handValue) {
+    private Hand2(Category category, List<Card> cardList, int handValue) {
         this.category = category;
         this.cardList = cardList;
         this.handValue = handValue;
@@ -50,7 +50,7 @@ public class Hand implements Comparable<Hand> {
     }
 
     @Override
-    public int compareTo(Hand o) {
+    public int compareTo(Hand2 o) {
         return o.handValue - handValue;
     }
 
@@ -71,7 +71,7 @@ public class Hand implements Comparable<Hand> {
     static private final long SUIT_MASK = 0x1111111111111L;
     static private final long RANK_MASK = 0xFL;
 
-    static private Hand handValue(Category category, List<Card> cardList) {
+    static private Hand2 handValue(Category category, List<Card> cardList) {
         int value = category.ordinal() << 4;
         int i = 0;
         int n = Math.min(5, cardList.size());
@@ -82,22 +82,22 @@ public class Hand implements Comparable<Hand> {
         for (; i < 5; ++i) {
             value <<= 4;
         }
-        return new Hand(category, cardList, value);
+        return new Hand2(category, cardList, value);
     }
 
-    static private Hand handValue(Category category, CardSet cardSet) {
+    static private Hand2 handValue(Category category, CardSet cardSet) {
         return handValue(category, cardSet.toList());
     }
 
-    static public Hand eval(CardSet cs) {
-        long val = cs.longValue();
+    static public Hand2 eval(CardSet cs) {
+        long value = cs.longValue();
         long test, mask;
 
         // Straight flush
         for (int i = 0, n = (Card.Rank.getSize() * Card.Suit.getSize()) - (4 * Card.Suit.getSize());
              i < n; ++i) {
             mask = STRAIGHT_FLUSH_MASK << i;
-            test = val & mask;
+            test = value & mask;
             if (test == mask) {
                 return handValue(Category.STRAIGHT_FLUSH, new CardSet(test));
             }
@@ -106,7 +106,7 @@ public class Hand implements Comparable<Hand> {
         // Ace low straight flush
         for (int i = 0, n = Card.Suit.getSize(); i < n; ++i) {
             mask = ACE_LOW_STRAIGHT_FLUSH_MASK << i;
-            test = val & mask;
+            test = value & mask;
             if (test == mask) {
                 CardSet handSet = new CardSet(test);
                 List<Card> cardList = handSet.toList();
@@ -120,14 +120,14 @@ public class Hand implements Comparable<Hand> {
         CardSet secondPair = null;
 
         // Four of a Kind
-        long spades = val & SUIT_MASK;
-        long hearts = (val >> 1) & SUIT_MASK;
-        long diamonds = (val >> 2) & SUIT_MASK;
-        long clubs = (val >> 3) & SUIT_MASK;
+        long spades = value & SUIT_MASK;
+        long hearts = (value >> 1) & SUIT_MASK;
+        long diamonds = (value >> 2) & SUIT_MASK;
+        long clubs = (value >> 3) & SUIT_MASK;
         long fourOfKind = (spades & hearts & diamonds & clubs);
         if (fourOfKind != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(fourOfKind);
-            CardSet kickers = new CardSet(val & ~mask);
+            CardSet kickers = new CardSet(value & ~mask);
             List<Card> hand = (new CardSet(mask)).toList();
             hand.add(kickers.toList().get(0));
             return handValue(Category.FOUR_OF_A_KIND, hand);
@@ -146,19 +146,19 @@ public class Hand implements Comparable<Hand> {
                 (hearts & spades);
         if (triples != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(triples);
-            test = val & mask;
+            test = value & mask;
             threeOfKind = new CardSet(test);
             sets &= ~Long.lowestOneBit(triples); // Remove triple from sets
         }
         if (sets != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(sets);
-            test = val & mask;
+            test = value & mask;
             topPair = new CardSet(test);
             sets &= ~Long.lowestOneBit(sets); // Remove top pair from sets
         }
         if (sets != 0) {
             mask = RANK_MASK << Long.numberOfTrailingZeros(sets);
-            test = val & mask;
+            test = value & mask;
             secondPair = new CardSet(test);
         }
 
@@ -171,7 +171,7 @@ public class Hand implements Comparable<Hand> {
         // Search for flush
         for (int i = 0, n = Card.Suit.getSize(); i < n; ++i) {
             mask = SUIT_MASK << i;
-            test = val & mask;
+            test = value & mask;
             int cardCount = Long.bitCount(test);
             if (cardCount >= 5) {
                 return handValue(Category.FLUSH, new CardSet(test));
@@ -183,7 +183,7 @@ public class Hand implements Comparable<Hand> {
         long straight = 0;
         for (int i = 0, n = Card.Rank.getSize(); i < n; ++i) {
             mask = RANK_MASK << (i * Card.Suit.getSize());
-            test = val & mask;
+            test = value & mask;
             if (test != 0) {
                 straightLength++;
                 straight |= Long.lowestOneBit(test);
@@ -197,7 +197,7 @@ public class Hand implements Comparable<Hand> {
         }
         // Test for ace low straight
         if (straightLength == 4) {
-            test = val & RANK_MASK;
+            test = value & RANK_MASK;
             if (test != 0) {
                 straight |= Long.lowestOneBit(test);
                 CardSet handSet = new CardSet(straight);
@@ -237,14 +237,14 @@ public class Hand implements Comparable<Hand> {
         return handValue(Category.HIGH_CARD, cs.subList(5));
     }
 
-    static public Hand eval(Collection<Card> hand, Collection<Card> board) {
+    static public Hand2 eval(Collection<Card> hand, Collection<Card> board) {
         CardSet cs = new CardSet();
         cs.addAll(hand);
         cs.addAll(board);
         return eval(cs);
     }
 
-    static public Hand eval(Collection<Card> cards) {
+    static public Hand2 eval(Collection<Card> cards) {
         return eval(new CardSet(cards));
     }
 
