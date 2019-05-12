@@ -43,6 +43,8 @@ interface PokerToken {
 
 class PotState(override val minter: Party, override val amount: Long) : ContractState, PokerToken {
 
+    // TODO add a "former" owner to it so that we can track historical bets
+
     init {
         requireThat {
             "The value should be positive" using (amount > 0L)

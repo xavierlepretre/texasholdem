@@ -69,6 +69,10 @@ class TokenContract : Contract {
                 "Input owners should sign when Betting" using (command.signers.containsAll(inOwners.map { it.owningKey }))
             }
 
+//            is Commands.PotToPot -> requireThat {
+//                // TODO
+//            }
+
             is Commands.Win -> requireThat {
                 "There should be no input TokenState when Winning" using (inputTokenCount == 0)
                 "There should be at least one input PotState when Winning" using (inputPotCount > 0)
@@ -95,6 +99,7 @@ class TokenContract : Contract {
         class Mint : Commands
         class Transfer : Commands
         class BetToPot : Commands
+//        class PotToPot : Commands // TODO to be able to go from blind bet to other rounds
         class Win : Commands
         class Burn : Commands
     }
