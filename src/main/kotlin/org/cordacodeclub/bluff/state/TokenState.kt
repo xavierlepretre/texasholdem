@@ -1,5 +1,6 @@
 package org.cordacodeclub.bluff.state
 
+import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.requireThat
 import net.corda.core.identity.AbstractParty
@@ -7,7 +8,9 @@ import net.corda.core.identity.Party
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
+import org.cordacodeclub.bluff.contract.TokenContract
 
+@BelongsToContract(TokenContract::class)
 data class TokenState(
     val minter: Party,
     val owner: Party,

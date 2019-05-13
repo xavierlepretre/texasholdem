@@ -1,9 +1,10 @@
+package org.cordacodeclub.bluff.contract
+
 import net.corda.core.identity.CordaX500Name
 import net.corda.testing.contracts.DummyState
 import net.corda.testing.core.TestIdentity
 import net.corda.testing.node.MockServices
 import net.corda.testing.node.ledger
-import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.contract.TokenContract.Companion.ID
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.Ignore
