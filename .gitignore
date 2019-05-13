@@ -3,7 +3,11 @@
 .project
 .settings
 .DS_Store
-./logs/*.log
+logs/*/*.log
+logs/*/*.log.gz
+logs/*.log
+./logs/*/*.log
+./logs/*/*.log.gz
 
 .gradle
 
