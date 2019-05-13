@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
+import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.node.services.Vault
@@ -25,6 +26,11 @@ object BlindBetFlow {
     @CordaSerializable
     class BlindBetRequest(val minter: Party, val amount: Long);
 
+    // To use in a .fold.
+    // We send the request to the player, the player returns a list of StateAndRef.
+    // This is the list of responses for important players.
+    class Accumulator(val request: BlindBetRequest, val states: List<List<StateAndRef<TokenState>>>)
+
     @InitiatingFlow
     @StartableByRPC
     /**
@@ -36,7 +42,9 @@ object BlindBetFlow {
 
         init {
             requireThat {
-                "There needs at least 2 players" using (players.size >= 2)
+                "BLIND_PLAYER_COUNT needs to be at least 2, it is $BLIND_PLAYER_COUNT" using (BLIND_PLAYER_COUNT >= 2)
+                "Small Bet cannot be 0" using (smallBet > 0)
+                "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
             }
         }
 
@@ -45,8 +53,8 @@ object BlindBetFlow {
          * checkpoint is reached in the code. See the 'progressTracker.currentStep' expressions within the call() function.
          */
         companion object {
-            object COLLECTING_SMALL_BLINDBET_STATES : ProgressTracker.Step("Collecting small blind bets from player 1.")
-            object COLLECTING_BIG_BLINDBET_STATES : ProgressTracker.Step("Collecting big blind bets from player 2.")
+            object COLLECTING_BLINDBET_STATES : ProgressTracker.Step("Collecting all blind bets from first players.")
+            object PINGING_OTHER_PLAYERS : ProgressTracker.Step("Pinging other players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction based on new IOU.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
@@ -59,12 +67,13 @@ object BlindBetFlow {
                 ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
                 override fun childProgressTracker() = FinalityFlow.tracker()
             }
+
+            const val BLIND_PLAYER_COUNT = 2
         }
 
         fun tracker() = ProgressTracker(
-            COLLECTING_SMALL_BLINDBET_STATES,
-            COLLECTING_BIG_BLINDBET_STATES,
-//            GENERATING_CARD_STATES,
+            COLLECTING_BLINDBET_STATES,
+            PINGING_OTHER_PLAYERS,
             GENERATING_POT_STATES,
             GENERATING_TRANSACTION,
             VERIFYING_TRANSACTION,
@@ -75,7 +84,6 @@ object BlindBetFlow {
 
         override val progressTracker = tracker()
 
-
         /**
          * The flow logic is encapsulated within the call() method.
          */
@@ -85,28 +93,52 @@ object BlindBetFlow {
             // Obtain a reference to the notary we want to use.
             val notary = serviceHub.networkMapCache.notaryIdentities.first()
 
-            progressTracker.currentStep = COLLECTING_SMALL_BLINDBET_STATES
+            progressTracker.currentStep = COLLECTING_BLINDBET_STATES
 
-            val requiredSigners = players.take(2)
-            val first2Flows = requiredSigners.map { initiateFlow(it) }
-            val request0 = BlindBetRequest(minter = minter, amount = smallBet)
-            val states0 = first2Flows.get(0)
-                .sendAndReceive<List<StateAndRef<TokenState>>>(request0).unwrap { it }
-                .filter { it.state.data.minter == minter }
-            val sum0 = states0.map { it.state.data.amount }.sum()
-            requireThat {
-                "We have to receive at least $smallBet" using (smallBet <= sum0)
+            val requiredSigners = players.take(BLIND_PLAYER_COUNT)
+            val allFlows = players.map { initiateFlow(it) }
+
+            val playerStates = (0..BLIND_PLAYER_COUNT - 1)
+                .fold(
+                    Accumulator(
+                        request = BlindBetRequest(minter = minter, amount = smallBet),
+                        states = listOf()
+                    )
+                ) { accumulator, index ->
+                    val receivedStates = allFlows.get(index)
+                        .sendAndReceive<List<StateAndRef<TokenState>>>(accumulator.request).unwrap { it }
+                        .filter { it.state.data.minter == minter }
+                    val sum = receivedStates.map { it.state.data.amount }.sum()
+                    requireThat {
+                        "We have to receive at least ${accumulator.request.amount}, not $sum" using
+                                (accumulator.request.amount <= sum)
+                        // TODO enforce the doubling strictly?
+                    }
+                    Accumulator(
+                        request = BlindBetRequest(minter = minter, amount = sum),
+                        states = accumulator.states.plusElement(receivedStates)
+                    )
+                }.states
+
+            progressTracker.currentStep = PINGING_OTHER_PLAYERS
+            // We need to do it so that the responder flow is primed. We only care about finality with the other
+            // players
+            val requestOthers = BlindBetRequest(minter = minter, amount = 0L)
+            players.forEachIndexed { index, player ->
+                if (index > 1) {
+                    val statesOther = allFlows.get(index)
+                        .sendAndReceive<List<StateAndRef<TokenState>>>(requestOthers).unwrap { it }
+                    requireThat {
+                        "Other players should not send any state" using (statesOther.size == 0)
+                    }
+                }
             }
 
-            progressTracker.currentStep = COLLECTING_BIG_BLINDBET_STATES
-            val request1 = BlindBetRequest(minter = minter, amount = sum0)
-            val states1 = first2Flows.get(1)
-                .sendAndReceive<List<StateAndRef<TokenState>>>(request1).unwrap { it }
-                .filter { it.state.data.minter == minter }
-            val sum1 = states1.map { it.state.data.amount }.sum()
-            requireThat {
-                "We have to receive at least $sum0" using (sum0 <= sum1)
-                // TODO enforce the doubling strictly?
+            progressTracker.currentStep = GENERATING_POT_STATES
+            // We separate them to accomodate future owner tracking
+            val potStates = playerStates.map { list ->
+                val sum = list.map { it.state.data.amount }.sum()
+                list.first().state.data.copy(amount = sum, isPot = true)
             }
 
             val command = Command(
@@ -114,19 +146,18 @@ object BlindBetFlow {
                 requiredSigners.map { it.owningKey }
             )
 
-            progressTracker.currentStep = GENERATING_POT_STATES
-            val potState0 = TokenState(minter = minter, owner = requiredSigners.get(0), amount = sum0, isPot = true)
-            // We separate them to accomodate future owner tracking
-            val potState1 = TokenState(minter = minter, owner = requiredSigners.get(1), amount = sum1, isPot = true)
-
             progressTracker.currentStep = GENERATING_TRANSACTION
             val txBuilder = TransactionBuilder(notary = notary)
 
             txBuilder.addCommand(command)
-            states0.forEach { txBuilder.addInputState(it) }
-            states1.forEach { txBuilder.addInputState(it) }
-            txBuilder.addOutputState(potState0, TokenContract.ID)
-            txBuilder.addOutputState(potState1, TokenContract.ID)
+            playerStates.forEach { list ->
+                list.forEach {
+                    txBuilder.addInputState(it)
+                }
+            }
+            potStates.forEach {
+                txBuilder.addOutputState(it, TokenContract.ID)
+            }
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
             txBuilder.verify(serviceHub)
@@ -135,18 +166,24 @@ object BlindBetFlow {
             val signedTx = serviceHub.signInitialTransaction(txBuilder)
 
             progressTracker.currentStep = GATHERING_SIGS
+            // Split flow between first 2 players
             val fullySignedTx = subFlow(
                 CollectSignaturesFlow(
                     signedTx,
-                    first2Flows,
+                    allFlows.take(BLIND_PLAYER_COUNT),
                     GATHERING_SIGS.childProgressTracker()
                 )
             )
+            // and the others
+            allFlows.drop(BLIND_PLAYER_COUNT).forEach {
+                it.sendAndReceive<Unit>(fullySignedTx.id)
+            }
 
             progressTracker.currentStep = FINALISING_TRANSACTION
             return subFlow(
                 FinalityFlow(
                     fullySignedTx,
+                    allFlows,
                     FINALISING_TRANSACTION.childProgressTracker()
                 )
             )
@@ -190,51 +227,65 @@ object BlindBetFlow {
 
             // TODO What to check with the filtered transaction?
 
-            // Find the states to bet according to the amount requested
-            var remainingAmount = received.amount
-            val unconsumedStates = builder {
-                val forMinter = TokenSchemaV1.PersistentToken::minter.equal(received.minter.toString())
-                val forOwner =
-                    TokenSchemaV1.PersistentToken::owner.equal(serviceHub.myInfo.legalIdentities.first().toString())
-                val minterCriteria = QueryCriteria.VaultCustomQueryCriteria(forMinter)
-                val ownerCriteria = QueryCriteria.VaultCustomQueryCriteria(forOwner)
-                val unconsumedCriteria: QueryCriteria =
-                    QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-                val criteria = unconsumedCriteria.and(minterCriteria).and(ownerCriteria)
-                serviceHub.vaultService.queryBy<TokenState>(criteria).states
-            }.takeWhile {
-                // TODO avoid paying more than necessary
-                remainingAmount -= it.state.data.amount
-                remainingAmount > 0
-            }
+            val unconsumedStates = if (received.amount == 0L) {
+                // This is not a player that matters
+                listOf()
+            } else {
+                // Find the states to bet according to the amount requested
+                var remainingAmount = received.amount
 
-            // TODO soft lock the unconsumed states?
+                builder {
+                    val forMinter = TokenSchemaV1.PersistentToken::minter.equal(received.minter.toString())
+                    val forOwner =
+                        TokenSchemaV1.PersistentToken::owner.equal(serviceHub.myInfo.legalIdentities.first().toString())
+                    val forIsNotPot = TokenSchemaV1.PersistentToken::isPot.equal(false)
+                    val minterCriteria = QueryCriteria.VaultCustomQueryCriteria(forMinter)
+                    val ownerCriteria = QueryCriteria.VaultCustomQueryCriteria(forOwner)
+                    val isNotPotCriteria = QueryCriteria.VaultCustomQueryCriteria(forIsNotPot)
+                    val unconsumedCriteria: QueryCriteria =
+                        QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
+                    val criteria = unconsumedCriteria.and(minterCriteria).and(ownerCriteria).and(isNotPotCriteria)
+                    serviceHub.vaultService.queryBy<TokenState>(criteria).states
+                }.takeWhile {
+                    // TODO avoid paying more than necessary
+                    // TODO soft lock the unconsumed states?
+                    remainingAmount -= it.state.data.amount
+                    remainingAmount > 0
+                }
+            }
 
             progressTracker.currentStep = SENDING_TOKEN_STATES
             otherPartySession.send(unconsumedStates)
 
             progressTracker.currentStep = SIGNING_TRANSACTION
-            val signTransactionFlow =
-                object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
+            val txId = if (received.amount == 0L) {
+                // We are actually sent the transaction hash
+                otherPartySession.sendAndReceive<SecureHash>(Unit).unwrap { it }
+            } else {
+                val signTransactionFlow =
+                    object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
 
-                    override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                        progressTracker.currentStep = CHECKING_VALIDITY
-                        // Making sure we see our previously picked states
-                        val receivedInputRefs = stx.coreTransaction.inputs.map {
-                            serviceHub.toStateAndRef<TokenState>(it)
-                        }.filter {
-                            it.state.data.owner == serviceHub.myInfo.legalIdentities.first()
-                        }.map {
-                            it.ref
+                        override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                            progressTracker.currentStep = CHECKING_VALIDITY
+                            // Making sure we see our previously picked states
+                            val receivedInputRefs = stx.coreTransaction.inputs.map {
+                                serviceHub.toStateAndRef<TokenState>(it)
+                            }.filter {
+                                it.state.data.owner == serviceHub.myInfo.legalIdentities.first()
+                            }.map {
+                                it.ref
+                            }
+
+                            val previouslySent = unconsumedStates.map { it.ref }
+                            "We should receive the same inputs" using (
+                                    receivedInputRefs.containsAll(previouslySent) &&
+                                            previouslySent.containsAll(receivedInputRefs))
                         }
-
-                        val previouslySent = unconsumedStates.map { it.ref }
-                        "We should receive the same inputs" using (
-                                receivedInputRefs.containsAll(previouslySent) &&
-                                        previouslySent.containsAll(receivedInputRefs))
                     }
-                }
-            return subFlow(signTransactionFlow)
+                subFlow(signTransactionFlow).id
+            }
+
+            return subFlow(ReceiveFinalityFlow(otherPartySession, expectedTxId = txId))
         }
     }
 }
