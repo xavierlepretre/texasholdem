@@ -24,6 +24,7 @@ object TokenSchemaV1 : MappedSchema(
     const val MINTER_NAME = "minter"
     const val OWNER_NAME = "owner"
     const val AMOUNT = "amount"
+    const val IS_POT = "isPot"
 
     @Entity
     @Table(name = TABLE_NAME)
@@ -35,10 +36,13 @@ object TokenSchemaV1 : MappedSchema(
         var owner: String,
 
         @Column(name = AMOUNT)
-        var amount: Long
+        var amount: Long,
+
+        @Column(name = IS_POT)
+        var isPot: Boolean
     ) : PersistentState() {
         @Suppress("unused")
         // Default constructor required by hibernate.
-        constructor() : this("", "", 0)
+        constructor() : this("", "", 0, false)
     }
 }

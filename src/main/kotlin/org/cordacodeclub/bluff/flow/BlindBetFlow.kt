@@ -17,7 +17,6 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.TokenContract
-import org.cordacodeclub.bluff.state.PotState
 import org.cordacodeclub.bluff.state.TokenSchemaV1
 import org.cordacodeclub.bluff.state.TokenState
 
@@ -123,9 +122,9 @@ object BlindBetFlow {
             )
 
             progressTracker.currentStep = GENERATING_POT_STATES
-            val potState0 = PotState(minter = minter, amount = sum0)
+            val potState0 = TokenState(minter = minter, owner = requiredSigners.get(0), amount = sum0, isPot = true)
             // We separate them to accomodate future owner tracking
-            val potState1 = PotState(minter = minter, amount = sum1)
+            val potState1 = TokenState(minter = minter, owner = requiredSigners.get(1), amount = sum1, isPot = true)
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             val txBuilder = TransactionBuilder(notary = notary)

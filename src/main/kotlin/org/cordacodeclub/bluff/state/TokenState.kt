@@ -9,10 +9,11 @@ import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
 
 data class TokenState(
-    override val minter: Party,
+    val minter: Party,
     val owner: Party,
-    override val amount: Long
-) : ContractState, QueryableState, PokerToken {
+    val amount: Long,
+    val isPot: Boolean // Signature is required if isPot == false
+) : ContractState, QueryableState {
     init {
         requireThat {
             "The value should be positive" using (amount > 0L)
@@ -25,32 +26,14 @@ data class TokenState(
     override fun supportedSchemas(): List<MappedSchema> = listOf(TokenSchemaV1)
 
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
-        return when(schema) {
+        return when (schema) {
             is TokenSchemaV1 -> TokenSchemaV1.PersistentToken(
                 this.minter.toString(),
                 this.owner.toString(),
-                this.amount
+                this.amount,
+                this.isPot
             )
             else -> throw IllegalArgumentException("Unrecognised schema $schema")
         }
     }
-}
-
-interface PokerToken {
-    val minter: Party
-    val amount: Long
-}
-
-class PotState(override val minter: Party, override val amount: Long) : ContractState, PokerToken {
-
-    // TODO add a "former" owner to it so that we can track historical bets
-
-    init {
-        requireThat {
-            "The value should be positive" using (amount > 0L)
-        }
-    }
-
-    override val participants: List<AbstractParty>
-        get() = listOf()
 }

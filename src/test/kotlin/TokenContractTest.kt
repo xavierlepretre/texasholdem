@@ -5,7 +5,6 @@ import net.corda.testing.node.MockServices
 import net.corda.testing.node.ledger
 import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.contract.TokenContract.Companion.ID
-import org.cordacodeclub.bluff.state.PotState
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.Ignore
 import org.junit.Test
@@ -19,12 +18,12 @@ class TokenContractTest {
     private val owner2 = TestIdentity(CordaX500Name("Owner2", "Berlin", "DE"))
     private val owner3 = TestIdentity(CordaX500Name("Owner3", "Bern", "CH"))
 
-    private val tokenState1 = TokenState(minter = minter1.party, owner = owner1.party, amount = 10)
-    private val tokenState2 = TokenState(minter = minter1.party, owner = owner2.party, amount = 20)
-    private val tokenState3 = TokenState(minter = minter1.party, owner = owner3.party, amount = 30)
-    private val potState1 = PotState(minter = minter1.party, amount = 10)
-    private val potState2 = PotState(minter = minter1.party, amount = 20)
-    private val potState3 = PotState(minter = minter1.party, amount = 30)
+    private val tokenState1 = TokenState(minter = minter1.party, owner = owner1.party, amount = 10, isPot = false)
+    private val tokenState2 = TokenState(minter = minter1.party, owner = owner2.party, amount = 20, isPot = false)
+    private val tokenState3 = TokenState(minter = minter1.party, owner = owner3.party, amount = 30, isPot = false)
+    private val potState1 = TokenState(minter = minter1.party, owner = owner1.party, amount = 10, isPot = true)
+    private val potState2 = TokenState(minter = minter1.party, owner = owner2.party, amount = 20, isPot = true)
+    private val potState3 = TokenState(minter = minter1.party, owner = owner3.party, amount = 30, isPot = true)
 
     /// Mint
 
@@ -80,7 +79,7 @@ class TokenContractTest {
                     listOf(owner1.publicKey, minter1.publicKey),
                     TokenContract.Commands.Mint()
                 )
-                failsWith("should be no input TokenState when Minting")
+                failsWith("should be no inputs when Minting")
             }
 
             transaction {
@@ -90,7 +89,7 @@ class TokenContractTest {
                     listOf(minter1.publicKey),
                     TokenContract.Commands.Mint()
                 )
-                failsWith("should be no input PotState when Minting")
+                failsWith("should be no inputs when Minting")
             }
         }
     }
@@ -105,7 +104,7 @@ class TokenContractTest {
                     listOf(minter1.publicKey),
                     TokenContract.Commands.Mint()
                 )
-                failsWith("should be no output PotState when Minting")
+                failsWith("should be no output Pot State when Minting")
             }
         }
     }
@@ -127,7 +126,7 @@ class TokenContractTest {
 
     @Test
     fun `Mint transaction must have single minter`() {
-        val badState2 = TokenState(minter = minter2.party, owner = owner2.party, amount = 20)
+        val badState2 = TokenState(minter = minter2.party, owner = owner2.party, amount = 20, isPot = false)
         ledgerServices.ledger {
             transaction {
                 output(ID, tokenState1)
@@ -214,7 +213,7 @@ class TokenContractTest {
                     listOf(owner1.publicKey, minter1.publicKey),
                     TokenContract.Commands.Transfer()
                 )
-                failsWith("should be no input PotState when Transferring")
+                failsWith("should be no input Pot State when Transferring")
             }
         }
     }
@@ -230,7 +229,7 @@ class TokenContractTest {
                     listOf(minter1.publicKey),
                     TokenContract.Commands.Transfer()
                 )
-                failsWith("should be no output PotState when Transferring")
+                failsWith("should be no output Pot State when Transferring")
             }
         }
     }
@@ -294,7 +293,7 @@ class TokenContractTest {
 
     @Test
     fun `Transfer transaction must have single minter`() {
-        val badState1 = TokenState(minter = minter2.party, owner = owner2.party, amount = 10)
+        val badState1 = TokenState(minter = minter2.party, owner = owner2.party, amount = 10, isPot = false)
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
@@ -327,25 +326,32 @@ class TokenContractTest {
     /// BetToPot
 
     @Test
-    fun `BetToPot transaction can pass with 2 inputs to 1 output or reverse`() {
+    fun `BetToPot transaction can pass with 2 token inputs`() {
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
                 input(ID, tokenState2)
-                output(ID, potState3)
+                output(ID, potState1)
+                output(ID, potState2)
                 command(
                     listOf(owner1.publicKey, owner2.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
                 verifies()
             }
+        }
+    }
 
+    @Test
+    fun `BetToPot transaction can pass with 1 token input and 1 pot input`() {
+        ledgerServices.ledger {
             transaction {
-                input(ID, tokenState3)
+                input(ID, tokenState1)
+                input(ID, potState2)
                 output(ID, potState1)
                 output(ID, potState2)
                 command(
-                    listOf(owner3.publicKey),
+                    listOf(owner1.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
                 verifies()
@@ -368,22 +374,6 @@ class TokenContractTest {
                     TokenContract.Commands.Mint()
                 )
                 failsWith("List has more than one element")
-            }
-        }
-    }
-
-    @Test
-    fun `BetToPot transaction must have no pot input`() {
-        ledgerServices.ledger {
-            transaction {
-                input(ID, potState1)
-                input(ID, tokenState1)
-                output(ID, potState2)
-                command(
-                    listOf(owner1.publicKey, minter1.publicKey),
-                    TokenContract.Commands.BetToPot()
-                )
-                failsWith("should be no input PotState when Betting")
             }
         }
     }
@@ -435,7 +425,7 @@ class TokenContractTest {
     }
 
     @Test
-    fun `BetToPot transaction must have same amount in and out`() {
+    fun `BetToPot transaction must have same amount per owner in and out`() {
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
@@ -445,15 +435,15 @@ class TokenContractTest {
                     listOf(owner1.publicKey, owner2.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
-                failsWith("should be the same amount in and out when Betting")
+                failsWith("should be the same amount in and out per owner when Betting")
             }
         }
     }
 
     @Test
     fun `BetToPot transaction must have single minter`() {
-        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10)
-        val badPotState1 = PotState(minter = minter2.party, amount = 10)
+        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10, isPot = false)
+        val badPotState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10, isPot = true)
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
@@ -483,12 +473,13 @@ class TokenContractTest {
             transaction {
                 input(ID, tokenState1)
                 input(ID, tokenState2)
-                output(ID, potState3)
+                output(ID, potState1)
+                output(ID, potState2)
                 command(
                     listOf(owner1.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
-                failsWith("Input owners should sign when Betting")
+                failsWith("Input token owners should sign when Betting")
             }
         }
     }
@@ -620,8 +611,8 @@ class TokenContractTest {
 
     @Test
     fun `Win transaction must have single minter`() {
-        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10)
-        val badPotState1 = PotState(minter = minter2.party, amount = 10)
+        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10, isPot = false)
+        val badPotState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10, isPot = true)
         ledgerServices.ledger {
             transaction {
                 input(ID, potState1)
@@ -751,7 +742,7 @@ class TokenContractTest {
 
     @Test
     fun `Burn transaction must have single minter`() {
-        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10)
+        val badTokenState1 = TokenState(minter = minter2.party, owner = owner1.party, amount = 10, isPot = false)
         ledgerServices.ledger {
             transaction {
                 input(ID, potState1)

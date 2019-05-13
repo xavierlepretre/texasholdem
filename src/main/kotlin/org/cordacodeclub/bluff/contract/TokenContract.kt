@@ -4,9 +4,8 @@ import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireSingleCommand
 import net.corda.core.contracts.requireThat
+import net.corda.core.internal.toMultiMap
 import net.corda.core.transactions.LedgerTransaction
-import org.cordacodeclub.bluff.state.PokerToken
-import org.cordacodeclub.bluff.state.PotState
 import org.cordacodeclub.bluff.state.TokenState
 
 class TokenContract : Contract {
@@ -17,24 +16,33 @@ class TokenContract : Contract {
     override fun verify(tx: LedgerTransaction) {
         val command = tx.commands.requireSingleCommand<Commands>()
         val inputTokens = tx.inputsOfType<TokenState>()
-        val inputPots = tx.inputsOfType<PotState>()
+        val sortedInputs = inputTokens.partition { it.isPot }
         val outputTokens = tx.outputsOfType<TokenState>()
-        val outputPots = tx.outputsOfType<PotState>()
-        val inputTokenCount = inputTokens.count()
-        val inputPotCount = inputPots.count()
-        val outputTokenCount = outputTokens.count()
-        val outputPotCount = outputPots.count()
+        val sortedOutputs = outputTokens.partition { it.isPot }
+        val inputTokenCount = sortedInputs.second.count()
+        val inputPotCount = sortedInputs.first.count()
+        val outputTokenCount = sortedOutputs.second.count()
+        val outputPotCount = sortedOutputs.first.count()
 
-        val summing = fun(sum: Long, token: PokerToken) = sum + token.amount
+        val summing = fun(sum: Long, token: TokenState) = sum + token.amount
 
-        val inAmount = inputTokens.plus<PokerToken>(inputPots).fold(0L, summing)
-        val outAmount = outputTokens.plus<PokerToken>(outputPots).fold(0L, summing)
+        val inAmount = inputTokens.fold(0L, summing)
+        val outAmount = outputTokens.fold(0L, summing)
         val inOwners = inputTokens.map { it.owner }.toSet()
+        val outOwners = outputTokens.map { it.owner }.toSet()
+        val inputSigners = sortedInputs.second.map { it.owner.owningKey }
+
+        val inAmountsPerOwner = inputTokens
+            .map { it.owner to it.amount }
+            .toMultiMap()
+            .mapValues { it.value.sum() }
+        val outAmountsPerOwner = outputTokens
+            .map { it.owner to it.amount }
+            .toMultiMap()
+            .mapValues { it.value.sum() }
 
         val minters = inputTokens
-            .plus<PokerToken>(inputPots)
             .plus(outputTokens)
-            .plus(outputPots)
             .map { it.minter }
             .toSet()
         requireThat {
@@ -44,34 +52,32 @@ class TokenContract : Contract {
 
         when (command.value) {
             is Commands.Mint -> requireThat {
-                "There should be no input TokenState when Minting" using (inputTokenCount == 0)
-                "There should be no input PotState when Minting" using (inputPotCount == 0)
-                "There should have at least one output TokenState when Minting" using (outputTokenCount > 0)
-                "There should be no output PotState when Minting" using (outputPotCount == 0)
+                "There should be no inputs when Minting" using (inputTokens.size == 0)
+                "There should be at least one output TokenState when Minting" using (outputTokenCount > 0)
+                "There should be no output Pot State when Minting" using (outputPotCount == 0)
                 "The minter should sign when Minting" using (command.signers.contains(minters.single().owningKey))
             }
 
             is Commands.Transfer -> requireThat {
                 "There should be at least one input TokenState when Transferring" using (inputTokenCount > 0)
-                "There should be no input PotState when Transferring" using (inputPotCount == 0)
+                "There should be no input Pot State when Transferring" using (inputPotCount == 0)
                 "There should be at least one output TokenState when Transferring" using (outputTokenCount > 0)
-                "There should be no output PotState when Transferring" using (outputPotCount == 0)
+                "There should be no output Pot State when Transferring" using (outputPotCount == 0)
                 "There should be the same amount in and out when Transferring" using (inAmount == outAmount)
-                "Input owners should sign when Transferring" using (command.signers.containsAll(inOwners.map { it.owningKey }))
+                "Input owners should sign when Transferring" using (command.signers.containsAll(inputSigners))
             }
 
             is Commands.BetToPot -> requireThat {
                 "There should be at least one input TokenState when Betting" using (inputTokenCount > 0)
-                "There should be no input PotState when Betting" using (inputPotCount == 0)
+                // There can be pot states in inputs if we are in a next round
                 "There should be no output TokenState when Betting" using (outputTokenCount == 0)
                 "There should be at least one output PotState when Betting" using (outputPotCount > 0)
-                "There should be the same amount in and out when Betting" using (inAmount == outAmount)
-                "Input owners should sign when Betting" using (command.signers.containsAll(inOwners.map { it.owningKey }))
+                val sameAmountsPerOwner = inOwners.plus(outOwners).fold(true) { result, key ->
+                    result && inAmountsPerOwner.get(key) == outAmountsPerOwner.get(key)
+                }
+                "There should be the same amount in and out per owner when Betting" using (sameAmountsPerOwner)
+                "Input token owners should sign when Betting" using (command.signers.containsAll(inputSigners))
             }
-
-//            is Commands.PotToPot -> requireThat {
-//                // TODO
-//            }
 
             is Commands.Win -> requireThat {
                 "There should be no input TokenState when Winning" using (inputTokenCount == 0)
@@ -87,7 +93,7 @@ class TokenContract : Contract {
                 "There should be no input PotState when Burning" using (inputPotCount == 0)
                 "There should be no output TokenState when Burning" using (outputTokenCount == 0)
                 "There should be no output PotState when Burning" using (outputPotCount == 0)
-                "Input owners should sign when Burning" using (command.signers.containsAll(inOwners.map { it.owningKey }))
+                "Input owners should sign when Burning" using (command.signers.containsAll(inputSigners))
                 "The minter should sign when Burning" using (command.signers.contains(minters.single().owningKey))
             }
 
@@ -99,7 +105,6 @@ class TokenContract : Contract {
         class Mint : Commands
         class Transfer : Commands
         class BetToPot : Commands
-//        class PotToPot : Commands // TODO to be able to go from blind bet to other rounds
         class Win : Commands
         class Burn : Commands
     }
