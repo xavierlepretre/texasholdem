@@ -11,7 +11,6 @@ import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.node.services.vault.builder
 import net.corda.core.serialization.CordaSerializable
-import net.corda.core.transactions.FilteredTransaction
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
@@ -25,9 +24,6 @@ object BlindBetFlow {
 
     @CordaSerializable
     class BlindBetRequest(val minter: Party, val amount: Long);
-
-    @CordaSerializable
-    class Combo(val request: BlindBetRequest, val filteredTransaction: FilteredTransaction);
 
     @InitiatingFlow
     @StartableByRPC
@@ -51,12 +47,10 @@ object BlindBetFlow {
         companion object {
             object COLLECTING_SMALL_BLINDBET_STATES : ProgressTracker.Step("Collecting small blind bets from player 1.")
             object COLLECTING_BIG_BLINDBET_STATES : ProgressTracker.Step("Collecting big blind bets from player 2.")
-//            object GENERATING_CARD_STATES : ProgressTracker.Step("Generating cards based on the players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction based on new IOU.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.")
-
             object GATHERING_SIGS : ProgressTracker.Step("Gathering the counterparty's signature.") {
                 override fun childProgressTracker() = CollectSignaturesFlow.tracker()
             }
@@ -95,22 +89,21 @@ object BlindBetFlow {
 
             val requiredSigners = players.take(2)
             val first2Flows = requiredSigners.map { initiateFlow(it) }
-            val request = BlindBetRequest(minter = minter, amount = smallBet)
-            val states0 = first2Flows.get(0).sendAndReceive<List<StateAndRef<TokenState>>>(request).unwrap { it }
+            val request0 = BlindBetRequest(minter = minter, amount = smallBet)
+            val states0 = first2Flows.get(0)
+                .sendAndReceive<List<StateAndRef<TokenState>>>(request0).unwrap { it }
                 .filter { it.state.data.minter == minter }
-            val sum0 = states0.fold(0L) { sum, state ->
-                sum + state.state.data.amount
-            }
+            val sum0 = states0.map { it.state.data.amount }.sum()
             requireThat {
                 "We have to receive at least $smallBet" using (smallBet <= sum0)
             }
 
             progressTracker.currentStep = COLLECTING_BIG_BLINDBET_STATES
-            val states1 = first2Flows.get(1).sendAndReceive<List<StateAndRef<TokenState>>>(request).unwrap { it }
+            val request1 = BlindBetRequest(minter = minter, amount = sum0)
+            val states1 = first2Flows.get(1)
+                .sendAndReceive<List<StateAndRef<TokenState>>>(request1).unwrap { it }
                 .filter { it.state.data.minter == minter }
-            val sum1 = states1.fold(0L) { sum, state ->
-                sum + state.state.data.amount
-            }
+            val sum1 = states1.map { it.state.data.amount }.sum()
             requireThat {
                 "We have to receive at least $sum0" using (sum0 <= sum1)
                 // TODO enforce the doubling strictly?
@@ -129,6 +122,7 @@ object BlindBetFlow {
             progressTracker.currentStep = GENERATING_TRANSACTION
             val txBuilder = TransactionBuilder(notary = notary)
 
+            txBuilder.addCommand(command)
             states0.forEach { txBuilder.addInputState(it) }
             states1.forEach { txBuilder.addInputState(it) }
             txBuilder.addOutputState(potState0, TokenContract.ID)
