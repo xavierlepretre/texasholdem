@@ -20,7 +20,6 @@ import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.state.TokenSchemaV1
 import org.cordacodeclub.bluff.state.TokenState
 
-//Initial flow
 object BlindBetFlow {
 
     @CordaSerializable
@@ -35,8 +34,10 @@ object BlindBetFlow {
     @StartableByRPC
     /**
      * This flow is startable by the dealer party.
-     * And it has to be signed by the players and delear.
+     * And it has to be signed by the players and dealer.
      * @param players list of parties starting the game
+     * @param minter the desired minter of the tokens
+     * @param smallBet the starting small bet
      */
     class Initiator(val players: List<Party>, val minter: Party, val smallBet: Long) : FlowLogic<SignedTransaction>() {
 
@@ -56,7 +57,7 @@ object BlindBetFlow {
             object COLLECTING_BLINDBET_STATES : ProgressTracker.Step("Collecting all blind bets from first players.")
             object PINGING_OTHER_PLAYERS : ProgressTracker.Step("Pinging other players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
-            object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction based on new IOU.")
+            object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.")
             object GATHERING_SIGS : ProgressTracker.Step("Gathering the counterparty's signature.") {
@@ -126,19 +127,23 @@ object BlindBetFlow {
             val requestOthers = BlindBetRequest(minter = minter, amount = 0L)
             players.forEachIndexed { index, player ->
                 if (index > 1) {
-                    val statesOther = allFlows.get(index)
+                    allFlows.get(index)
                         .sendAndReceive<List<StateAndRef<TokenState>>>(requestOthers).unwrap { it }
-                    requireThat {
-                        "Other players should not send any state" using (statesOther.size == 0)
-                    }
+                        .also { statesOther ->
+                            requireThat {
+                                "Other players should not send any state" using (statesOther.size == 0)
+                            }
+                        }
                 }
             }
 
             progressTracker.currentStep = GENERATING_POT_STATES
             // We separate them to accomodate future owner tracking
             val potStates = playerStates.map { list ->
-                val sum = list.map { it.state.data.amount }.sum()
-                list.first().state.data.copy(amount = sum, isPot = true)
+                list.map { it.state.data.amount }.sum()
+                    .let { sum ->
+                        list.first().state.data.copy(amount = sum, isPot = true)
+                    }
             }
 
             val command = Command(
@@ -207,12 +212,14 @@ object BlindBetFlow {
             }
 
             object CHECKING_VALIDITY : ProgressTracker.Step("Checking transaction validity.")
+            object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 
             fun tracker() = ProgressTracker(
                 RECEIVING_REQUEST_FOR_STATES,
                 SENDING_TOKEN_STATES,
                 SIGNING_TRANSACTION,
-                CHECKING_VALIDITY
+                CHECKING_VALIDITY,
+                RECEIVING_FINALISED_TRANSACTION
             )
         }
 
@@ -285,6 +292,7 @@ object BlindBetFlow {
                 subFlow(signTransactionFlow).id
             }
 
+            progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
             return subFlow(ReceiveFinalityFlow(otherPartySession, expectedTxId = txId))
         }
     }
