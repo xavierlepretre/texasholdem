@@ -121,10 +121,9 @@ object BlindBetFlow {
                                 (!receivedStates.map { it.state.data.isPot }.toSet().single())
                         "We have to receive at least ${accumulator.request.amount}, not $sum" using
                                 (accumulator.request.amount <= sum)
-                        // TODO enforce the doubling strictly?
                     }
                     Accumulator(
-                        request = BlindBetRequest(minter = minter, amount = sum),
+                        request = BlindBetRequest(minter = minter, amount = 2 * sum),
                         states = accumulator.states.plusElement(receivedStates)
                     )
                 }.states

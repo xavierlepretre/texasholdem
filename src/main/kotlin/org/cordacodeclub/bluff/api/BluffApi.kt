@@ -1,9 +1,18 @@
 package org.cordacodeclub.bluff.api
 
+import net.corda.core.crypto.SecureHash
+import org.cordacodeclub.bluff.flow.BlindBetFlow
 import net.corda.core.identity.CordaX500Name
+import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
+import net.corda.core.messaging.startFlow
 import net.corda.core.node.services.IdentityService
+import net.corda.core.utilities.getOrThrow
 import net.corda.core.utilities.loggerFor
+import org.cordacodeclub.bluff.flow.BlindBetFlow.Initiator
+import org.cordacodeclub.bluff.flow.CreateGameFlow
+import org.cordacodeclub.bluff.flow.MintTokenFlow
+import org.cordacodeclub.grom356.Card
 import org.slf4j.Logger
 import sun.security.timestamp.TSResponse.BAD_REQUEST
 import javax.ws.rs.*
@@ -44,25 +53,83 @@ class BluffApi(private val rpcOps: CordaRPCOps) {
                 .filter { it.organisation !in (SERVICE_NAMES + myLegalName.organisation) })
     }
 
+    /**
+     * Flow that is called by dealer to create tokens for players
+     */
+    @PUT
+    @Path("create-tokens")
+    fun createTokens(
+            @QueryParam("players") players: List<String>,
+            @QueryParam("amountPerPlayer") amountPerPlayer: Long
+    ): Response {
+        if (players == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'players' missing or has wrong format.\n").build()
+        }
+        if (amountPerPlayer == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'amountPerPlayer' missing or has wrong format.\n").build()
+        }
+        val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
+        return try {
+            val signedTransaction = rpcOps.startFlow(MintTokenFlow::Minter, playerParties, amountPerPlayer)
+                    .returnValue.getOrThrow()
+            Response.ok(signedTransaction).build()
+        } catch (ex: Throwable) {
+            logger.error(ex.message, ex)
+            Response.status(BAD_REQUEST).entity(ex.message!!).build()
+        }
+    }
 
     /**
      * Initial flow that is called by dealer to create blind bets, tokens and betting pot for the players
-     *
-     *
      */
     @PUT
-    @Path("go-direct-agreement")
-    fun startInitialBetting(
+    @Path("create-blind-bets")
+    fun createInitialBet(
             @QueryParam("players") players: List<String>,
             @QueryParam("minter") minter: String,
             @QueryParam("smallBet") smallBet: Long
     ): Response {
+        if (players == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'players' missing or has wrong format.\n").build()
+        }
+        if (minter == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'minter' missing or has wrong format.\n").build()
+        }
+        if (smallBet == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'smallBet' missing or has wrong format.\n").build()
+        }
+        val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
+        val minterParty = rpcOps.partiesFromName(minter, true).single()
         return try {
+            val signedTransaction = rpcOps.startFlow(BlindBetFlow::Initiator, playerParties, minterParty, smallBet)
+                    .returnValue.getOrThrow()
+            Response.ok(signedTransaction).build()
+        } catch (ex: Throwable) {
+            logger.error(ex.message, ex)
+            Response.status(BAD_REQUEST).entity(ex.message!!).build()
+        }
+    }
+
+    /**
+     * Flow that is called by dealer to create player cards and collect bets
+     */
+    @PUT
+    @Path("create-game")
+    fun createGame(
+            @QueryParam("players") players: List<String>,
+            @QueryParam("lastRaise") blindBetId: SecureHash
+            ): Response {
+        if (players == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'players' missing or has wrong format.\n").build()
+        }
+        if (blindBetId == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'blindBetId' missing or has wrong format.\n").build()
+        }
+        return try{
             val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
-            val minterParty = rpcOps.partiesFromName(minter, true).single()
-            //val signedTx = rpcOps.startTrackedFlow(::BlindBetFlow(playerParties, minterParty, smallBet))
-
-
+            val signedTransaction = rpcOps.startFlow(CreateGameFlow::GameCreator, playerParties, blindBetId)
+                    .returnValue.getOrThrow()
+            Response.ok(signedTransaction).build()
         } catch (ex: Throwable) {
             logger.error(ex.message, ex)
             Response.status(BAD_REQUEST).entity(ex.message!!).build()
