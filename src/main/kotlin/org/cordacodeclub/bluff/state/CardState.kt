@@ -7,6 +7,7 @@ import net.corda.core.identity.Party
 data class CardState(
         val communityCards: List<Any>, //These will be Card objects
         override val playerCards: List<Any>,
+        val remainingCards: List<Any>,
         val owner: Party,
         val dealer: Party,
         val blindBet: BlindBetState
