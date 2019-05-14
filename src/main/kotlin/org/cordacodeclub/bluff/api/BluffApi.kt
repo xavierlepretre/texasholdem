@@ -8,6 +8,7 @@ import net.corda.core.node.services.IdentityService
 import net.corda.core.utilities.loggerFor
 import org.cordacodeclub.bluff.flow.BlindBetFlow
 import org.slf4j.Logger
+import sun.security.timestamp.TSResponse.BAD_REQUEST
 import javax.ws.rs.*
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
@@ -62,8 +63,8 @@ class BluffApi(private val rpcOps: CordaRPCOps) {
         return try {
             val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
             val minterParty = rpcOps.partiesFromName(minter, true).single()
-            val signedTx = rpcOps.startTrackedFlow(::BlindBetFlow(playerParties, minterParty, smallBet))
-            
+            //val signedTx = rpcOps.startTrackedFlow(::BlindBetFlow(playerParties, minterParty, smallBet))
+
 
         } catch (ex: Throwable) {
             logger.error(ex.message, ex)
