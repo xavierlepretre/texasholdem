@@ -280,17 +280,20 @@ object BlindBetFlow {
                             progressTracker.currentStep = CHECKING_VALIDITY
                             // Making sure we see our previously picked states
                             val receivedInputRefs = stx.coreTransaction.inputs.map {
-                                serviceHub.toStateAndRef<TokenState>(it)
+                                if (serviceHub.validatedTransactions.getTransaction(it.txhash) != null) {
+                                    serviceHub.toStateAndRef<TokenState>(it)
+                                } else null
                             }.filter {
-                                it.state.data.owner == serviceHub.myInfo.legalIdentities.first()
+                                it != null && it.state.data.owner == serviceHub.myInfo.legalIdentities.first()
                             }.map {
-                                it.ref
+                                it!!.ref
                             }
 
                             val previouslySent = unconsumedStates.map { it.ref }
                             "We should receive the same inputs" using (
                                     receivedInputRefs.containsAll(previouslySent) &&
                                             previouslySent.containsAll(receivedInputRefs))
+                            // TODO Check that the rules of blind bet were followed
                         }
                     }
                 subFlow(signTransactionFlow).id
