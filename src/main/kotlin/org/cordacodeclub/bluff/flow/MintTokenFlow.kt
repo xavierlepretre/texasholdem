@@ -18,7 +18,7 @@ object MintTokenFlow {
     @StartableByRPC
     /**
      * This flow is startable by the dealer party.
-     * And it has to be signed by the players and delear.
+     * And it has to be signed by the players and dealer.
      * @param players list of parties being issued tokens
      * @param amountPerPlayer the number of tokens minted to each player
      */
