@@ -27,7 +27,7 @@ object MintTokenFlow {
         init {
             requireThat {
                 "amountPerPlayer must be >0" using (amountPerPlayer > 0)
-                "There needs at least 1 player" using (players.size > 0)
+                "There needs at least 1 player" using (players.isNotEmpty())
             }
         }
 
@@ -74,7 +74,7 @@ object MintTokenFlow {
             txBuilder.addCommand(command)
 
             players.forEach { player ->
-                (1..amountPerPlayer).forEach {
+                (1..amountPerPlayer).forEach { _ ->
                     // We issue many tokens of 1 each to facilitate betting.
                     txBuilder.addOutputState(TokenState(minter = minter, owner = player, amount = 1, isPot = false))
                 }

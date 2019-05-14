@@ -23,7 +23,7 @@ import org.cordacodeclub.bluff.state.TokenState
 object BlindBetFlow {
 
     @CordaSerializable
-    class BlindBetRequest(val minter: Party, val amount: Long);
+    class BlindBetRequest(val minter: Party, val amount: Long)
 
     // To use in a .fold.
     // We send the request to the player, the player returns a list of StateAndRef.
@@ -99,18 +99,24 @@ object BlindBetFlow {
             val requiredSigners = players.take(BLIND_PLAYER_COUNT)
             val allFlows = players.map { initiateFlow(it) }
 
-            val playerStates = (0..BLIND_PLAYER_COUNT - 1)
+            val playerStates = (0 until BLIND_PLAYER_COUNT)
                 .fold(
                     Accumulator(
                         request = BlindBetRequest(minter = minter, amount = smallBet),
                         states = listOf()
                     )
-                ) { accumulator, index ->
-                    val receivedStates = allFlows.get(index)
+                ) { accumulator, playerIndex ->
+                    val receivedStates = allFlows[playerIndex]
                         .sendAndReceive<List<StateAndRef<TokenState>>>(accumulator.request).unwrap { it }
                         .filter { it.state.data.minter == minter }
                     val sum = receivedStates.map { it.state.data.amount }.sum()
                     requireThat {
+                        "States should have the asked minter" using
+                                (receivedStates.map { it.state.data.minter }.toSet().single() == minter)
+                        "States should have the player as owner" using
+                                (receivedStates.map { it.state.data.owner }.toSet().single() == players[playerIndex])
+                        "States should all be non pot" using
+                                (!receivedStates.map { it.state.data.isPot }.toSet().single())
                         "We have to receive at least ${accumulator.request.amount}, not $sum" using
                                 (accumulator.request.amount <= sum)
                         // TODO enforce the doubling strictly?
@@ -125,20 +131,18 @@ object BlindBetFlow {
             // We need to do it so that the responder flow is primed. We only care about finality with the other
             // players
             val requestOthers = BlindBetRequest(minter = minter, amount = 0L)
-            players.forEachIndexed { index, player ->
-                if (index > 1) {
-                    allFlows.get(index)
-                        .sendAndReceive<List<StateAndRef<TokenState>>>(requestOthers).unwrap { it }
-                        .also { statesOther ->
-                            requireThat {
-                                "Other players should not send any state" using (statesOther.size == 0)
-                            }
+            players.drop(BLIND_PLAYER_COUNT).forEachIndexed { index, _ ->
+                allFlows[index + BLIND_PLAYER_COUNT]
+                    .sendAndReceive<List<StateAndRef<TokenState>>>(requestOthers).unwrap { it }
+                    .also { statesOther ->
+                        requireThat {
+                            "Other players should not send any state" using (statesOther.isEmpty())
                         }
-                }
+                    }
             }
 
             progressTracker.currentStep = GENERATING_POT_STATES
-            // We separate them to accomodate future owner tracking
+            // We separate them to accommodate future owner tracking
             val potStates = playerStates.map { list ->
                 list.map { it.state.data.amount }.sum()
                     .let { sum ->
