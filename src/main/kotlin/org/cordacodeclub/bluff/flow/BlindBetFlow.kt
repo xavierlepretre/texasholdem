@@ -56,6 +56,7 @@ object BlindBetFlow {
         companion object {
             object COLLECTING_BLINDBET_STATES : ProgressTracker.Step("Collecting all blind bets from first players.")
             object PINGING_OTHER_PLAYERS : ProgressTracker.Step("Pinging other players.")
+            object SENDING_TOKEN_STATES_TO_PLAYERS : ProgressTracker.Step("Sending token states to other players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
@@ -75,6 +76,7 @@ object BlindBetFlow {
         fun tracker() = ProgressTracker(
             COLLECTING_BLINDBET_STATES,
             PINGING_OTHER_PLAYERS,
+            SENDING_TOKEN_STATES_TO_PLAYERS,
             GENERATING_POT_STATES,
             GENERATING_TRANSACTION,
             VERIFYING_TRANSACTION,
@@ -141,6 +143,14 @@ object BlindBetFlow {
                     }
             }
 
+            progressTracker.currentStep = SENDING_TOKEN_STATES_TO_PLAYERS
+            playerStates.flatMap { it }
+                .also { flatStates ->
+                    allFlows.forEach { flow ->
+                        flow.send(flatStates)
+                    }
+                }
+
             progressTracker.currentStep = GENERATING_POT_STATES
             // We separate them to accommodate future owner tracking
             val potStates = playerStates.map { list ->
@@ -185,7 +195,7 @@ object BlindBetFlow {
             )
             // and the others
             allFlows.drop(BLIND_PLAYER_COUNT).forEach {
-                it.sendAndReceive<Unit>(fullySignedTx.id)
+                it.send(fullySignedTx.id)
             }
 
             progressTracker.currentStep = FINALISING_TRANSACTION
@@ -209,6 +219,7 @@ object BlindBetFlow {
         companion object {
             object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token states.")
             object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token states.")
+            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token states.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
                 override fun childProgressTracker(): ProgressTracker {
                     return SignTransactionFlow.tracker()
@@ -221,6 +232,7 @@ object BlindBetFlow {
             fun tracker() = ProgressTracker(
                 RECEIVING_REQUEST_FOR_STATES,
                 SENDING_TOKEN_STATES,
+                RECEIVING_ALL_TOKEN_STATES,
                 SIGNING_TRANSACTION,
                 CHECKING_VALIDITY,
                 RECEIVING_FINALISED_TRANSACTION
@@ -231,6 +243,8 @@ object BlindBetFlow {
 
         @Suspendable
         override fun call(): SignedTransaction {
+
+            val me = serviceHub.myInfo.legalIdentities.first()
 
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATES
             // Receive an incomplete transaction and a minimum amount to bet
@@ -248,7 +262,7 @@ object BlindBetFlow {
                 builder {
                     val forMinter = TokenSchemaV1.PersistentToken::minter.equal(received.minter.toString())
                     val forOwner =
-                        TokenSchemaV1.PersistentToken::owner.equal(serviceHub.myInfo.legalIdentities.first().toString())
+                        TokenSchemaV1.PersistentToken::owner.equal(me.toString())
                     val forIsNotPot = TokenSchemaV1.PersistentToken::isPot.equal(false)
                     val minterCriteria = QueryCriteria.VaultCustomQueryCriteria(forMinter)
                     val ownerCriteria = QueryCriteria.VaultCustomQueryCriteria(forOwner)
@@ -268,32 +282,31 @@ object BlindBetFlow {
             progressTracker.currentStep = SENDING_TOKEN_STATES
             otherPartySession.send(unconsumedStates)
 
+            progressTracker.currentStep = RECEIVING_ALL_TOKEN_STATES
+            val allPlayerStateRefs =
+                otherPartySession.receive<List<StateAndRef<TokenState>>>().unwrap { it }.also { allPlayerStates ->
+                    allPlayerStates.filter {
+                        it.state.data.owner == me
+                    }.also { myBlindBets ->
+                        requireThat {
+                            "Only my blind bets are in the list" using (myBlindBets.toSet() == unconsumedStates.toSet())
+                            // TODO Check that the rules of blind bet were followed?
+                        }
+                    }
+                }.map { it.ref }
+
             progressTracker.currentStep = SIGNING_TRANSACTION
             val txId = if (received.amount == 0L) {
                 // We are actually sent the transaction hash
-                otherPartySession.sendAndReceive<SecureHash>(Unit).unwrap { it }
+                otherPartySession.receive<SecureHash>().unwrap { it }
             } else {
                 val signTransactionFlow =
                     object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
 
                         override fun checkTransaction(stx: SignedTransaction) = requireThat {
                             progressTracker.currentStep = CHECKING_VALIDITY
-                            // Making sure we see our previously picked states
-                            val receivedInputRefs = stx.coreTransaction.inputs.map {
-                                if (serviceHub.validatedTransactions.getTransaction(it.txhash) != null) {
-                                    serviceHub.toStateAndRef<TokenState>(it)
-                                } else null
-                            }.filter {
-                                it != null && it.state.data.owner == serviceHub.myInfo.legalIdentities.first()
-                            }.map {
-                                it!!.ref
-                            }
-
-                            val previouslySent = unconsumedStates.map { it.ref }
-                            "We should receive the same inputs" using (
-                                    receivedInputRefs.containsAll(previouslySent) &&
-                                            previouslySent.containsAll(receivedInputRefs))
-                            // TODO Check that the rules of blind bet were followed
+                            // Making sure we see our previously received states, which have been checked
+                            "We should have only known states" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                         }
                     }
                 subFlow(signTransactionFlow).id
