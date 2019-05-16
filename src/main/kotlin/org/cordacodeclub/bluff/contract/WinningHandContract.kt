@@ -5,7 +5,6 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
-import net.corda.testing.core.TestIdentity
 import org.bouncycastle.jcajce.provider.asymmetric.dh.BCDHPublicKey
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.ClearCard
