@@ -85,7 +85,7 @@ class TokenContract : Contract {
                 "There should be at least one output TokenState when Winning" using (outputTokenCount > 0)
                 "There should be no output PotState when Winning" using (outputPotCount == 0)
                 "There should be the same amount in and out when Winning" using (inAmount == outAmount)
-                // There should be something more to make sure it is only on a real win.
+                // TODO There should be something more to make sure it is only on a real win.
             }
 
             is Commands.Burn -> requireThat {

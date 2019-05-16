@@ -56,7 +56,7 @@ object BlindBetFlow {
         companion object {
             object COLLECTING_BLINDBET_STATES : ProgressTracker.Step("Collecting all blind bets from first players.")
             object PINGING_OTHER_PLAYERS : ProgressTracker.Step("Pinging other players.")
-            object SENDING_TOKEN_STATES_TO_PLAYERS : ProgressTracker.Step("Sending token states to other players.")
+            object SENDING_TOKEN_STATES_TO_PLAYERS : ProgressTracker.Step("Sending token moreBets to other players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
@@ -216,9 +216,9 @@ object BlindBetFlow {
          * checkpoint is reached in the code. See the 'progressTracker.currentStep' expressions within the call() function.
          */
         companion object {
-            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token states.")
-            object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token states.")
-            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token states.")
+            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token moreBets.")
+            object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token moreBets.")
+            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token moreBets.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
                 override fun childProgressTracker(): ProgressTracker {
                     return SignTransactionFlow.tracker()
@@ -247,19 +247,19 @@ object BlindBetFlow {
 
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATES
             // Receive an incomplete transaction and a minimum amount to bet
-            val received = otherPartySession.receive<BlindBetRequest>().unwrap { it }
+            val request = otherPartySession.receive<BlindBetRequest>().unwrap { it }
 
             // TODO What to check with the filtered transaction?
 
-            val unconsumedStates = if (received.amount == 0L) {
+            val unconsumedStates = if (request.amount == 0L) {
                 // This is not a player that matters
                 listOf()
             } else {
                 // Find the states to bet according to the amount requested
-                var remainingAmount = received.amount
+                var remainingAmount = request.amount
 
                 builder {
-                    val forMinter = TokenSchemaV1.PersistentToken::minter.equal(received.minter.toString())
+                    val forMinter = TokenSchemaV1.PersistentToken::minter.equal(request.minter.toString())
                     val forOwner =
                         TokenSchemaV1.PersistentToken::owner.equal(me.toString())
                     val forIsNotPot = TokenSchemaV1.PersistentToken::isPot.equal(false)
@@ -295,7 +295,7 @@ object BlindBetFlow {
                 }.map { it.ref }
 
             progressTracker.currentStep = SIGNING_TRANSACTION
-            val txId = if (received.amount == 0L) {
+            val txId = if (request.amount == 0L) {
                 // We are actually sent the transaction hash
                 otherPartySession.receive<SecureHash>().unwrap { it }
             } else {
@@ -305,7 +305,7 @@ object BlindBetFlow {
                         override fun checkTransaction(stx: SignedTransaction) = requireThat {
                             progressTracker.currentStep = CHECKING_VALIDITY
                             // Making sure we see our previously received states, which have been checked
-                            "We should have only known states" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
+                            "We should have only known moreBets" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                         }
                     }
                 subFlow(signTransactionFlow).id
