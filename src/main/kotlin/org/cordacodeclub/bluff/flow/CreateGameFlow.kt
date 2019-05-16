@@ -8,32 +8,23 @@ import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
-import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
+import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.grom356.Card
 
 //Initial flow
 object CreateGameFlow {
 
-    @CordaSerializable
-    data class RaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<Card>) {
-        init {
-            requireThat {
-                "There can be only 2 cards" using (yourCards.size == GameCreator.PLAYER_CARD_COUNT)
-                "Your wager cannot be higher than the last raise" using (yourWager <= lastRaise)
-            }
-        }
-    }
-
     // To use in a .fold.
     // We send the request to the player, the player returns a list of StateAndRef.
     // This is the list of responses for players.
-    class Accumulator(val request: RaiseRequest, val states: List<List<StateAndRef<TokenState>>>)
+    class Accumulator(val request: CallOrRaiseRequest, val states: List<List<StateAndRef<TokenState>>>)
+
 
     @InitiatingFlow
     @StartableByRPC
@@ -75,6 +66,10 @@ object CreateGameFlow {
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.")
+            object GATHERING_SIGS : ProgressTracker.Step("Gathering the counterparty's signature.") {
+                override fun childProgressTracker() = CollectSignaturesFlow.tracker()
+            }
+
             object FINALISING_TRANSACTION :
                 ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
                 override fun childProgressTracker() = FinalityFlow.tracker()
@@ -88,86 +83,92 @@ object CreateGameFlow {
             GENERATING_TRANSACTION,
             VERIFYING_TRANSACTION,
             SIGNING_TRANSACTION,
+            GATHERING_SIGS,
             FINALISING_TRANSACTION
         )
 
         override val progressTracker = tracker()
 
-        /**
-         * The flow logic is encapsulated within the call() method.
-         */
         @Suspendable
         override fun call(): SignedTransaction {
 
-            // Obtain a reference to the notary we want to use.
-            val notary = serviceHub.networkMapCache.notaryIdentities.first()
             val allFlows = players.map { initiateFlow(it) }
 
-            // Shuffle cards
             // TODO better shuffling algorithm?
             val shuffled = Card.newDeck().shuffled()
 
             // TODO Encrypt first cards with player's key and last cards with dealer's key
 
+            // 3rd player starts
             // Send only their cards to each player, ask for bets
-            val currentBets = potTokens.map { entry ->
-                entry.key to entry.value.map { it.amount }.sum()
-            }.toMap()
-
-            val newBets = allFlows.foldIndexed(
-                Accumulator(
-                    RaiseRequest(
-                        minter = minter,
-                        lastRaise = currentBets.map { it.value }.max()!!,
-                        yourWager = 0,
-                        yourCards = listOf()
-                    ),
-                    listOf()
-                )
-            ) { index, acc, flow ->
-                val previousWager = currentBets[players[index]] ?: 0
-                val cards = shuffled.drop(index * PLAYER_CARD_COUNT).take(PLAYER_CARD_COUNT)
-                val request = acc.request.copy(yourWager = previousWager, yourCards = cards)
-                try {
-                    val newStates = flow.sendAndReceive<List<StateAndRef<TokenState>>>(request).unwrap { it }
-                    val raisedBy = newStates.map { it.state.data.amount }.sum()
-                    requireThat {
-                        "The minter should be in all new states" using
-                                (newStates.map { it.state.data.minter }.toSet().single() == minter)
-                        "The player should be the owner of all states" using
-                                (newStates.map { it.state.data.owner }.toSet().single() == players[index])
-                        "The amount should reach the last raise" using
-                                (previousWager + raisedBy >= request.lastRaise)
-                    }
-                    Accumulator(
-                        request.copy(lastRaise = previousWager + raisedBy),
-                        acc.states.plusElement(newStates)
-                    )
-                } catch (e: FlowException) {
-                    // TODO Confirm this is a fold
-                    // TODO There is also call and pass?
-                    Accumulator(
-                        request,
-                        acc.states.plusElement(listOf())
-                    )
+            val accumulated = RoundTableAccumulator(
+                minter = minter,
+                players = players.map { ActivePlayer(it, false) },
+                currentPlayerIndex = 2,
+                committedPotSums = potTokens.mapValues { entry ->
+                    entry.value.map { it.amount }.sum()
+                },
+                newBets = mapOf(),
+                lastRaiseIndex = 1,
+                playerCountSinceLastRaise = 0
+            ).doUntilIsRoundDone { accumulator ->
+                CallOrRaiseRequest(
+                    minter = minter,
+                    lastRaise = accumulator.currentLevel,
+                    yourWager = accumulator.currentPlayerSum,
+                    yourCards = shuffled.drop(accumulator.currentPlayerIndex * PLAYER_CARD_COUNT).take(PLAYER_CARD_COUNT)
+                ).let { request ->
+                    allFlows[accumulator.currentPlayerIndex].sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
+                }.let { response ->
+                    accumulator.stepForwardWhenCurrentPlayerSent(response)
                 }
-            }.states
-
-            val remainingPlayers = newBets.flatMap { list ->
-                list.map { it.state.data.owner }
             }
 
+            // Notify all players that the round is done. We need to do this because the responder flow has to move on
+            allFlows.forEach { it.send(RoundTableDone(true)) }
+
             progressTracker.currentStep = GENERATING_TRANSACTION
-            val minter = serviceHub.myInfo.legalIdentities.first()
+            // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
+            val newBettors = accumulated.newBets.keys
             val command = Command(
-                GameContract.Commands.Create(), remainingPlayers.map { it.owningKey }
+                GameContract.Commands.CarryOn(),
+                newBettors.map { it.owningKey }
             )
-
-            val txBuilder = TransactionBuilder(notary = notary)
-
+            val txBuilder = TransactionBuilder(notary = blindBetTx.notary)
             txBuilder.addCommand(command)
 
-            // TODO Create new Pot Tokens
+            // Add existing pot tokens
+            blindBetTx.tx.outRefsOfType<TokenState>().forEach {
+                txBuilder.addInputState(it)
+            }
+
+            // Add new bet tokens as inputs
+            accumulated.newBets.forEach { entry ->
+                entry.value.forEach { state ->
+                    txBuilder.addInputState(state)
+                }
+            }
+
+            // Create and add new Pot token summaries in outputs
+            accumulated.newBets
+                .mapValues { entry ->
+                    entry.value.map { it.state.data.amount }.sum()
+                }
+                .toList()
+                .plus(potTokens
+                    .mapValues { entry ->
+                        entry.value.map { it.amount }.sum()
+                    }
+                    .toList())
+                .toMultiMap()
+                .forEach { entry ->
+                    txBuilder.addOutputState(
+                        TokenState(
+                            minter = minter, owner = entry.key,
+                            amount = entry.value.sum(), isPot = true
+                        ), GameContract.ID
+                    )
+                }
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
             txBuilder.verify(serviceHub)
@@ -175,14 +176,23 @@ object CreateGameFlow {
             progressTracker.currentStep = SIGNING_TRANSACTION
             val signedTx = serviceHub.signInitialTransaction(txBuilder)
 
-            // TODO Send a filtered transaction to each player, ask for signature
+            progressTracker.currentStep = GATHERING_SIGS
+            // TODO Send a filtered transaction to each new bettor, ask for signature
+            val fullySignedTx = subFlow(
+                CollectSignaturesFlow(
+                    signedTx,
+                    players.mapIndexed { index, party -> if (newBettors.contains(party)) index else -1 }
+                        .filter { it >= 0 }
+                        .map { allFlows[it] },
+                    GATHERING_SIGS.childProgressTracker()
+                )
+            )
 
             // Finalise transaction
-
             progressTracker.currentStep = FINALISING_TRANSACTION
             return subFlow(
                 FinalityFlow(
-                    signedTx,
+                    fullySignedTx,
                     allFlows,
                     FINALISING_TRANSACTION.childProgressTracker()
                 )
@@ -209,11 +219,18 @@ object CreateGameFlow {
 
         @Suspendable
         override fun call(): SignedTransaction {
-            // TODO Receive a request
+            // TODO do while receiving
+            val request = otherPartySession.receive<RoundTableRequest>().unwrap { it }
+            when (request) {
+                is RoundTableDone -> null // TODO
+                is CallOrRaiseRequest -> { // TODO
+                }
+                else -> throw IllegalArgumentException("Unknown request type $request")
+            }
 
             // TODO Send states or call or pass?
 
-            // TODO Receive a filtered transaction to sign
+            // TODO Conditionally receive a filtered transaction to sign
 
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
             return subFlow(ReceiveFinalityFlow(otherPartySession))
