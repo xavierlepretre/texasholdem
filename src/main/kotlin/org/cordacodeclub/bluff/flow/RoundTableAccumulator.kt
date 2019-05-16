@@ -9,8 +9,17 @@ import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.grom356.Card
 
+
 @CordaSerializable
-data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<Card>) {
+// Marker interface that is sent to the responder flow when going round the table
+interface RoundTableRequest {}
+
+@CordaSerializable
+data class RoundTableDone(val isDone: Boolean) : RoundTableRequest
+
+@CordaSerializable
+data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<Card>) :
+    RoundTableRequest {
     init {
         requireThat {
             "There can be only 2 cards" using (yourCards.size == CreateGameFlow.GameCreator.PLAYER_CARD_COUNT)
@@ -20,6 +29,9 @@ data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWa
 }
 
 @CordaSerializable
+// Call: Same amount as previous player -> new states to reach above current level
+// Raise bigger -> return no new state or new states to reach current level
+// Fold: give away cards -> return no new state
 class CallOrRaiseResponse {
     val isFold: Boolean
     val moreBets: List<StateAndRef<TokenState>>
@@ -41,6 +53,14 @@ class CallOrRaiseResponse {
         isFold = false
         moreBets = states
     }
+}
+
+fun RoundTableAccumulator.doUntilIsRoundDone(stepper: (RoundTableAccumulator) -> RoundTableAccumulator): RoundTableAccumulator {
+    var accumulator = this
+    while (!accumulator.isRoundDone) {
+        accumulator = stepper(accumulator)
+    }
+    return accumulator
 }
 
 // This object is passed around after each player has acted
