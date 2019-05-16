@@ -2,13 +2,19 @@ package org.cordacodeclub.bluff.contract
 
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireThat
+import net.corda.core.identity.CordaX500Name
+import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
+import net.corda.testing.core.TestIdentity
+import org.bouncycastle.jcajce.provider.asymmetric.dh.BCDHPublicKey
 import org.cordacodeclub.bluff.state.AssignedCard
+import org.cordacodeclub.bluff.state.ClearCard
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardSet
 import org.cordacodeclub.grom356.Hand
+import java.security.PublicKey
 
 class WinningHandContract: Contract {
     companion object {
@@ -36,18 +42,17 @@ class WinningHandContract: Contract {
         }
     }
 
-fun sortedHands(playerHand: PlayerHandState, gameHandStates: List<PlayerHandState>, gameCards: List<AssignedCard>) : List<PlayerHandState> {
-    val playerHands = gameHandStates.map {
+}
+
+fun sortedHands(gameHandStates: List<PlayerHandState>, gameCards: List<AssignedCard>) : List<Hand> {
+    val handsList = gameHandStates.map {
         val cardList: kotlin.collections.MutableList<Card> = java.util.ArrayList()
         val playerCards = it.cardIndexes.map {
             val card = gameCards[it].card!!
             cardList.add(card)
-            card!!
+            card
         }.toCollection(cardList)
         Hand.eval(CardSet(playerCards))
     }
-    playerHands.sortedWith()
-}
-
-
+    return handsList.sortedWith(compareBy { it.compareTo(it) })
 }
