@@ -69,6 +69,52 @@ fun RoundTableAccumulator.doUntilIsRoundDone(stepper: (RoundTableAccumulator) ->
     return accumulator
 }
 
+fun TransactionBuilder.addElementsOf(
+    inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
+    accumulated: RoundTableAccumulator
+) {
+    addCommand(
+        Command(
+            TokenContract.Commands.BetToPot(),
+            accumulated.newBets.keys.map { it.owningKey })
+    )
+
+    // Add existing pot tokens
+    inputPotTokens.forEach { entry ->
+        entry.value.forEach { addInputState(it) }
+    }
+
+    // Add new bet tokens as inputs
+    accumulated.newBets.forEach { entry ->
+        entry.value.forEach { addInputState(it) }
+    }
+
+    val minter = inputPotTokens.flatMap { entry ->
+        entry.value.map { it.state.data.minter }
+    }.toSet().single()
+
+    // Create and add new Pot token summaries in outputs
+    accumulated.newBets
+        .mapValues { entry ->
+            entry.value.map { it.state.data.amount }.sum()
+        }
+        .toList()
+        .plus(
+            inputPotTokens.mapValues { entry ->
+                entry.value.map { it.state.data.amount }.sum()
+            }.toList()
+        )
+        .toMultiMap()
+        .forEach { entry ->
+            addOutputState(
+                TokenState(
+                    minter = minter, owner = entry.key,
+                    amount = entry.value.sum(), isPot = true
+                ), GameContract.ID
+            )
+        }
+}
+
 // This object is passed around after each player has acted
 class RoundTableAccumulator(
     val minter: Party,
@@ -98,54 +144,6 @@ class RoundTableAccumulator(
             "lastRaiseIndex must be positive, not $lastRaiseIndex" using (lastRaiseIndex >= 0)
             "playerCountSinceLastRaise myst be positive, not $playerCountSinceLastRaise"
                 .using(playerCountSinceLastRaise >= 0)
-        }
-    }
-
-    companion object {
-        fun TransactionBuilder.addElementsOf(
-            inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
-            accumulated: RoundTableAccumulator
-        ) {
-            addCommand(
-                Command(
-                    TokenContract.Commands.BetToPot(),
-                    accumulated.newBets.keys.map { it.owningKey })
-            )
-
-            // Add existing pot tokens
-            inputPotTokens.forEach { entry ->
-                entry.value.forEach { addInputState(it) }
-            }
-
-            // Add new bet tokens as inputs
-            accumulated.newBets.forEach { entry ->
-                entry.value.forEach { addInputState(it) }
-            }
-
-            val minter = inputPotTokens.flatMap { entry ->
-                entry.value.map { it.state.data.minter }
-            }.toSet().single()
-
-            // Create and add new Pot token summaries in outputs
-            accumulated.newBets
-                .mapValues { entry ->
-                    entry.value.map { it.state.data.amount }.sum()
-                }
-                .toList()
-                .plus(
-                    inputPotTokens.mapValues { entry ->
-                        entry.value.map { it.state.data.amount }.sum()
-                    }.toList()
-                )
-                .toMultiMap()
-                .forEach { entry ->
-                    addOutputState(
-                        TokenState(
-                            minter = minter, owner = entry.key,
-                            amount = entry.value.sum(), isPot = true
-                        ), GameContract.ID
-                    )
-                }
         }
     }
 

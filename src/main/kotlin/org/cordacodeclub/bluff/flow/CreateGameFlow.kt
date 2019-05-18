@@ -13,7 +13,6 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
-import org.cordacodeclub.bluff.flow.RoundTableAccumulator.Companion.addElementsOf
 import org.cordacodeclub.bluff.state.*
 import org.cordacodeclub.grom356.Card
 
