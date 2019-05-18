@@ -1,7 +1,6 @@
 package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
-import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.SecureHash
@@ -12,7 +11,7 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
-import org.cordacodeclub.bluff.contract.GameContract
+import org.cordacodeclub.bluff.flow.RoundTableAccumulator.Companion.addElementsOf
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.grom356.Card
@@ -37,16 +36,16 @@ object CreateGameFlow {
     class GameCreator(val players: List<Party>, val blindBetId: SecureHash) : FlowLogic<SignedTransaction>() {
 
         val blindBetTx: SignedTransaction
-        val potTokens: Map<Party, List<TokenState>>
+        val potTokens: Map<Party, List<StateAndRef<TokenState>>>
         val minter: Party
 
         init {
             blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
-            potTokens = blindBetTx.coreTransaction.outputs.map { it.data as TokenState }
-                .map { it.owner to it }
+            potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
+                .map { it.state.data.owner to it }
                 .toMultiMap()
             minter = potTokens.entries.flatMap { entry ->
-                entry.value.map { it.minter }
+                entry.value.map { it.state.data.minter }
             }.toSet().single()
             requireThat {
                 val blindBetParticipants = blindBetTx.inputs.flatMap {
@@ -106,7 +105,7 @@ object CreateGameFlow {
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,
                 committedPotSums = potTokens.mapValues { entry ->
-                    entry.value.map { it.amount }.sum()
+                    entry.value.map { it.state.data.amount }.sum()
                 },
                 newBets = mapOf(),
                 lastRaiseIndex = 1,
@@ -129,45 +128,9 @@ object CreateGameFlow {
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
-            val newBettors = accumulated.newBets.keys
-            val command = Command(
-                GameContract.Commands.CarryOn(),
-                newBettors.map { it.owningKey }
-            )
             val txBuilder = TransactionBuilder(notary = blindBetTx.notary)
-            txBuilder.addCommand(command)
-
-            // Add existing pot tokens
-            blindBetTx.tx.outRefsOfType<TokenState>().forEach {
-                txBuilder.addInputState(it)
-            }
-
-            // Add new bet tokens as inputs
-            accumulated.newBets.forEach { entry ->
-                entry.value.forEach { state ->
-                    txBuilder.addInputState(state)
-                }
-            }
-
-            // Create and add new Pot token summaries in outputs
-            accumulated.newBets
-                .mapValues { entry ->
-                    entry.value.map { it.state.data.amount }.sum()
-                }
-                .toList()
-                .plus(potTokens
-                    .mapValues { entry ->
-                        entry.value.map { it.amount }.sum()
-                    }
-                    .toList())
-                .toMultiMap()
-                .forEach { entry ->
-                    txBuilder.addOutputState(
-                        TokenState(
-                            minter = minter, owner = entry.key,
-                            amount = entry.value.sum(), isPot = true
-                        ), GameContract.ID
-                    )
+                .also {
+                    it.addElementsOf(potTokens, accumulated)
                 }
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
@@ -181,9 +144,12 @@ object CreateGameFlow {
             val fullySignedTx = subFlow(
                 CollectSignaturesFlow(
                     signedTx,
-                    players.mapIndexed { index, party -> if (newBettors.contains(party)) index else -1 }
-                        .filter { it >= 0 }
-                        .map { allFlows[it] },
+                    accumulated.newBets.keys.let { newBettors ->
+                        players.mapIndexedNotNull { index, party ->
+                            if (newBettors.contains(party)) allFlows[index]
+                            else null
+                        }
+                    },
                     GATHERING_SIGS.childProgressTracker()
                 )
             )

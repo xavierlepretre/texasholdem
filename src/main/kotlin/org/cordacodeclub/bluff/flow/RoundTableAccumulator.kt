@@ -1,10 +1,13 @@
 package org.cordacodeclub.bluff.flow
 
+import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.TransactionBuilder
+import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.grom356.Card
@@ -92,6 +95,54 @@ class RoundTableAccumulator(
             "lastRaiseIndex must be positive, not $lastRaiseIndex" using (lastRaiseIndex >= 0)
             "playerCountSinceLastRaise myst be positive, not $playerCountSinceLastRaise"
                 .using(playerCountSinceLastRaise >= 0)
+        }
+    }
+
+    companion object {
+        fun TransactionBuilder.addElementsOf(
+            inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
+            accumulated: RoundTableAccumulator
+        ) {
+            addCommand(
+                Command(
+                    GameContract.Commands.CarryOn(),
+                    accumulated.newBets.keys.map { it.owningKey })
+            )
+
+            // Add existing pot tokens
+            inputPotTokens.forEach { entry ->
+                entry.value.forEach { addInputState(it) }
+            }
+
+            // Add new bet tokens as inputs
+            accumulated.newBets.forEach { entry ->
+                entry.value.forEach { addInputState(it) }
+            }
+
+            val minter = inputPotTokens.flatMap { entry ->
+                entry.value.map { it.state.data.minter }
+            }.toSet().single()
+
+            // Create and add new Pot token summaries in outputs
+            accumulated.newBets
+                .mapValues { entry ->
+                    entry.value.map { it.state.data.amount }.sum()
+                }
+                .toList()
+                .plus(
+                    inputPotTokens.mapValues { entry ->
+                        entry.value.map { it.state.data.amount }.sum()
+                    }.toList()
+                )
+                .toMultiMap()
+                .forEach { entry ->
+                    addOutputState(
+                        TokenState(
+                            minter = minter, owner = entry.key,
+                            amount = entry.value.sum(), isPot = true
+                        ), GameContract.ID
+                    )
+                }
         }
     }
 
