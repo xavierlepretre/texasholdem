@@ -256,26 +256,11 @@ object BlindBetFlow {
                 listOf()
             } else {
                 // Find the states to bet according to the amount requested
-                var remainingAmount = request.amount
-
-                builder {
-                    val forMinter = TokenSchemaV1.PersistentToken::minter.equal(request.minter.toString())
-                    val forOwner =
-                        TokenSchemaV1.PersistentToken::owner.equal(me.toString())
-                    val forIsNotPot = TokenSchemaV1.PersistentToken::isPot.equal(false)
-                    val minterCriteria = QueryCriteria.VaultCustomQueryCriteria(forMinter)
-                    val ownerCriteria = QueryCriteria.VaultCustomQueryCriteria(forOwner)
-                    val isNotPotCriteria = QueryCriteria.VaultCustomQueryCriteria(forIsNotPot)
-                    val unconsumedCriteria: QueryCriteria =
-                        QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-                    val criteria = unconsumedCriteria.and(minterCriteria).and(ownerCriteria).and(isNotPotCriteria)
-                    serviceHub.vaultService.queryBy<TokenState>(criteria).states
-                }.takeWhile {
-                    // TODO avoid paying more than necessary
-                    // TODO soft lock the unconsumed states?
-                    remainingAmount -= it.state.data.amount
-                    remainingAmount > 0
-                }
+                serviceHub.vaultService.collectTokenStatesUntil(
+                    minter = request.minter,
+                    owner = me,
+                    amount = request.amount
+                )
             }
 
             progressTracker.currentStep = SENDING_TOKEN_STATES
