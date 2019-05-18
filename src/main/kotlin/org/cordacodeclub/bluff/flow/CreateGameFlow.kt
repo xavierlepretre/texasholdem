@@ -1,6 +1,7 @@
 package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
+import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.SecureHash
@@ -11,19 +12,13 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.flow.RoundTableAccumulator.Companion.addElementsOf
-import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.TokenState
+import org.cordacodeclub.bluff.state.*
 import org.cordacodeclub.grom356.Card
 
 //Initial flow
 object CreateGameFlow {
-
-    // To use in a .fold.
-    // We send the request to the player, the player returns a list of StateAndRef.
-    // This is the list of responses for players.
-    class Accumulator(val request: CallOrRaiseRequest, val states: List<List<StateAndRef<TokenState>>>)
-
 
     @InitiatingFlow
     @StartableByRPC
@@ -98,6 +93,14 @@ object CreateGameFlow {
 
             // TODO Encrypt first cards with player's key and last cards with dealer's key
 
+            // Assign cards
+            val assignedCards: List<AssignedCard> = shuffled.mapIndexed { index, card ->
+                val playerIndex: Int = index / 2
+                if (playerIndex < players.size) ClearCard(card, players[playerIndex]) // TODO encrypt
+                else if (playerIndex < players.size + 5) ClearCard(card, minter) // TODO encrypt Future river
+                else ClearCard(card, minter) // TODO encrypt
+            }
+
             // 3rd player starts
             // Send only their cards to each player, ask for bets
             val accumulated = RoundTableAccumulator(
@@ -115,7 +118,9 @@ object CreateGameFlow {
                     minter = minter,
                     lastRaise = accumulator.currentLevel,
                     yourWager = accumulator.currentPlayerSum,
-                    yourCards = shuffled.drop(accumulator.currentPlayerIndex * PLAYER_CARD_COUNT).take(PLAYER_CARD_COUNT)
+                    yourCards = assignedCards.drop(accumulator.currentPlayerIndex * PLAYER_CARD_COUNT).take(
+                        PLAYER_CARD_COUNT
+                    )
                 ).let { request ->
                     allFlows[accumulator.currentPlayerIndex].sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
                 }.let { response ->
@@ -131,6 +136,13 @@ object CreateGameFlow {
             val txBuilder = TransactionBuilder(notary = blindBetTx.notary)
                 .also {
                     it.addElementsOf(potTokens, accumulated)
+                    it.addCommand(
+                        Command(
+                            GameContract.Commands.Create(),
+                            listOf(serviceHub.myInfo.legalIdentities.first().owningKey)
+                        )
+                    )
+                    it.addOutputState(GameState(assignedCards), GameContract.ID)
                 }
 
             progressTracker.currentStep = VERIFYING_TRANSACTION

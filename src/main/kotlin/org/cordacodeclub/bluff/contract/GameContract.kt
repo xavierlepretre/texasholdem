@@ -26,7 +26,8 @@ class GameContract : Contract {
             is Commands.CarryOn -> requireThat {
                 "There should be one input game" using (inputGames.size == 1)
                 "There should be one output game" using (outputGames.size == 1)
-                "The games should be the same" using (inputGames.single() == outputGames.single())
+                // TODO check that the cards that have been decrypted match with its previously encrypted form
+//                "The games should be the same" using (inputGames.single() == outputGames.single())
             }
 
             is Commands.Close -> requireThat {

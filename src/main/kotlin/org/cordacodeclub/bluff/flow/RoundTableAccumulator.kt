@@ -8,7 +8,9 @@ import net.corda.core.internal.toMultiMap
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import org.cordacodeclub.bluff.contract.GameContract
+import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.grom356.Card
 
@@ -21,12 +23,13 @@ interface RoundTableRequest {}
 data class RoundTableDone(val isDone: Boolean) : RoundTableRequest
 
 @CordaSerializable
-data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<Card>) :
+data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<AssignedCard>) :
     RoundTableRequest {
     init {
         requireThat {
             "There can be only 2 cards" using (yourCards.size == CreateGameFlow.GameCreator.PLAYER_CARD_COUNT)
             "Your wager cannot be higher than the last raise" using (yourWager <= lastRaise)
+            "Cards must be of the same assignee" using (yourCards.map { it.owner }.size == 1)
         }
     }
 }
@@ -105,7 +108,7 @@ class RoundTableAccumulator(
         ) {
             addCommand(
                 Command(
-                    GameContract.Commands.CarryOn(),
+                    TokenContract.Commands.BetToPot(),
                     accumulated.newBets.keys.map { it.owningKey })
             )
 
