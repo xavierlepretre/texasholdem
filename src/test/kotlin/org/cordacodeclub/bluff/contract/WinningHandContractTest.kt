@@ -8,33 +8,34 @@ import org.cordacodeclub.grom356.Card
 
 
 fun main(args: Array<String>) {
-    val cards = Card.newDeck()
+    val cards = Card.newDeck().shuffled()
 
     val testDealer = TestIdentity(CordaX500Name("testDealer", "London", "GB"))
     val testPartyA = TestIdentity(CordaX500Name("TestPlayerA", "London", "GB"))
     val testPartyB = TestIdentity(CordaX500Name("TestPlayerB", "London", "GB"))
     val testPartyC = TestIdentity(CordaX500Name("TestPlayerC", "London", "GB"))
 
-    val playerAHand = PlayerHandState(listOf(10,20,30,40,50), testPartyA.party)
+    //For test sake there is an assumption the first two cards are players and rest are community
+    val playerAHand = PlayerHandState(listOf(0,1,6,7,8), testPartyA.party)
     val playerACards = playerAHand.cardIndexes.map { cards[it] }
     println("PlayerA cards:" + playerACards.map { it })
-    val playerACardsAssigned = playerACards.map { ClearCard(it, testPartyA.party) }
+    val playerACardsAssignedOnly = playerACards.take(2).map { ClearCard(it, testPartyA.party) }
 
 
-    val playerBHand = PlayerHandState(listOf(5,15,30,40,50), testPartyB.party)
+    val playerBHand = PlayerHandState(listOf(2,3,6,7,8), testPartyB.party)
     val playerBCards = playerBHand.cardIndexes.map { cards[it] }
     println("PlayerB cards:" + playerBCards.map { it })
-    val playerBCardsAssigned = playerBCards.map { ClearCard(it, testPartyB.party) }
+    val playerBCardsAssignedOnly = playerBCards.take(2).map { ClearCard(it, testPartyB.party) }
 
-    val playerCHand = PlayerHandState(listOf(3,6,30,40,50), testPartyC.party)
+    val playerCHand = PlayerHandState(listOf(4,5,6,7,8), testPartyC.party)
     val playerCCards = playerCHand.cardIndexes.map { cards[it] }
     println("PlayerC cards:" + playerCCards.map { it })
-    val playerCCardsAssigned = playerCCards.map { ClearCard(it, testPartyC.party) }
+    val playerCCardsAssignedOnly = playerCCards.take(2).map { ClearCard(it, testPartyC.party) }
 
-    val remainingCards = cards - (playerACards + playerBCards + playerCCards)
+    val remainingCards = cards - cards.take(6)
     val remainingCardsAssigned = remainingCards.map { ClearCard(it, testDealer.party) }
 
-    val gameCards = (playerACardsAssigned + playerBCardsAssigned + playerCCardsAssigned + remainingCardsAssigned)
+    val gameCards = (playerACardsAssignedOnly + playerBCardsAssignedOnly + playerCCardsAssignedOnly + remainingCardsAssigned)
     val playerHandStates =  listOf(playerAHand, playerBHand, playerCHand)
-    println(sortedHands(playerHandStates, gameCards))
+    println("Winning hand: " + winningHand(playerHandStates, gameCards))
 }
