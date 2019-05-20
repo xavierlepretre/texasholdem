@@ -15,6 +15,7 @@ fun VaultService.collectTokenStatesUntil(
     owner: Party,
     amount: Long): List<StateAndRef<TokenState>> {
     val vaultService = this
+    if (amount == 0L) return listOf()
     var remainingAmount = amount
     return builder {
         val forMinter = TokenSchemaV1.PersistentToken::minter.equal(minter.toString())

@@ -282,6 +282,7 @@ object BlindBetFlow {
             progressTracker.currentStep = SIGNING_TRANSACTION
             val txId = if (request.amount == 0L) {
                 // We are actually sent the transaction hash
+                progressTracker.currentStep = CHECKING_VALIDITY // We have to do it
                 otherPartySession.receive<SecureHash>().unwrap { it }
             } else {
                 val signTransactionFlow =

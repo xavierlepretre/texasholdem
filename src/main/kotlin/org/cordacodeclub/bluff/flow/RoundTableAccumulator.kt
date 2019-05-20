@@ -12,18 +12,27 @@ import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.TokenState
-import org.cordacodeclub.grom356.Card
 
+enum class Action {
+    Call,
+    Raise,
+    Fold
+}
 
 @CordaSerializable
 // Marker interface that is sent to the responder flow when going round the table
 interface RoundTableRequest {}
 
 @CordaSerializable
-data class RoundTableDone(val isDone: Boolean) : RoundTableRequest
+data class RoundTableDone(val allNewTokens: List<StateAndRef<TokenState>>) : RoundTableRequest
 
 @CordaSerializable
-data class CallOrRaiseRequest(val minter: Party, val lastRaise: Long, val yourWager: Long, val yourCards: List<AssignedCard>) :
+data class CallOrRaiseRequest(
+    val minter: Party,
+    val lastRaise: Long,
+    val yourWager: Long,
+    val yourCards: List<AssignedCard>
+) :
     RoundTableRequest {
     init {
         requireThat {
@@ -213,4 +222,37 @@ class RoundTableAccumulator(
             playerCountSinceLastRaise = updatedPlayerCountSinceLastRaise
         )
     }
+}
+
+fun ResponseAccumulator.doUntilIsRoundDone(stepper: ResponseAccumulator.() -> ResponseAccumulator): ResponseAccumulator {
+    var accumulator = this
+    while (!accumulator.isDone) {
+        accumulator = accumulator.stepper()
+    }
+    return accumulator
+
+}
+
+data class ResponseAccumulator(
+    val myCards: List<AssignedCard>,
+    val myNewBets: List<StateAndRef<TokenState>>,
+    val allNewBets: List<StateAndRef<TokenState>>,
+    val isDone: Boolean
+) {
+
+    fun stepForwardWhenSending(request: RoundTableRequest, response: CallOrRaiseResponse): ResponseAccumulator {
+        return when (response.isFold) {
+            true -> this
+            false -> this.copy(
+                myCards = when (request) {
+                    is CallOrRaiseRequest -> request.yourCards
+                    else -> myCards
+                },
+                myNewBets = myNewBets.plus(response.moreBets)
+            )
+        }
+    }
+
+    fun stepForwardWhenIsDone(request: RoundTableDone) =
+        this.copy(isDone = true, allNewBets = request.allNewTokens)
 }

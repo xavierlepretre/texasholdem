@@ -15,6 +15,7 @@ import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.state.*
 import org.cordacodeclub.grom356.Card
+import kotlin.random.Random
 
 //Initial flow
 object CreateGameFlow {
@@ -128,7 +129,10 @@ object CreateGameFlow {
             }
 
             // Notify all players that the round is done. We need to do this because the responder flow has to move on
-            allFlows.forEach { it.send(RoundTableDone(true)) }
+            with(RoundTableDone(accumulated.newBets.flatMap { it.value })) {
+                allFlows.forEach { it.send(this) }
+            }
+
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
@@ -185,9 +189,24 @@ object CreateGameFlow {
          * checkpoint is reached in the code. See the 'progressTracker.currentStep' expressions within the call() function.
          */
         companion object {
+            object RECEIVING_REQUESTS : ProgressTracker.Step("Receiving requests.")
+            object RECEIVED_ROUND_DONE : ProgressTracker.Step("Received round done.")
+            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token moreBets.")
+            object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
+                override fun childProgressTracker(): ProgressTracker {
+                    return SignTransactionFlow.tracker()
+                }
+            }
+
+            object CHECKING_VALIDITY : ProgressTracker.Step("Checking transaction validity.")
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 
             fun tracker() = ProgressTracker(
+                RECEIVING_REQUESTS,
+                RECEIVED_ROUND_DONE,
+                RECEIVING_ALL_TOKEN_STATES,
+                SIGNING_TRANSACTION,
+                CHECKING_VALIDITY,
                 RECEIVING_FINALISED_TRANSACTION
             )
         }
@@ -196,21 +215,108 @@ object CreateGameFlow {
 
         @Suspendable
         override fun call(): SignedTransaction {
-            // TODO do while receiving
-            val request = otherPartySession.receive<RoundTableRequest>().unwrap { it }
-            when (request) {
-                is RoundTableDone -> null // TODO
-                is CallOrRaiseRequest -> { // TODO
-                }
-                else -> throw IllegalArgumentException("Unknown request type $request")
+            val me = serviceHub.myInfo.legalIdentities.first()
+            // TODO a real responder
+            val userResponder = { _: CallOrRaiseRequest ->
+                Action.values().get(
+                    Random(System.currentTimeMillis()).nextInt() % Action.values().size
+                ) to 10L
             }
 
-            // TODO Send states or call or pass?
+            val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
+                { request ->
+                    // The initiating flow expects a response
+                    requireThat {
+                        "We should be starting with no card or be sent the same cards again"
+                            .using(myCards.isEmpty() || request.yourCards == myCards)
+                        "Card should be assigned to me" using (request.yourCards.map { it.owner }.single() == me)
+                        "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
+                    }
+                    val userResponse = userResponder(request)
+                    when (userResponse.first) {
+                        Action.Call -> CallOrRaiseResponse(
+                            serviceHub.vaultService.collectTokenStatesUntil(
+                                minter = request.minter,
+                                owner = me,
+                                amount = request.lastRaise - request.yourWager
+                            )
+                        )
+                        Action.Raise -> CallOrRaiseResponse(
+                            serviceHub.vaultService.collectTokenStatesUntil(
+                                minter = request.minter,
+                                owner = me,
+                                amount = request.lastRaise - request.yourWager + userResponse.second
+                            )
+                        )
+                        Action.Fold -> CallOrRaiseResponse()
+                    }
+                }
+
+            val looper: ResponseAccumulator.() -> ResponseAccumulator = {
+                otherPartySession.receive<RoundTableRequest>().unwrap { it }
+                    .let { request ->
+                        when (request) {
+                            is RoundTableDone -> this.stepForwardWhenIsDone(request = request)
+                            is CallOrRaiseRequest -> responseBuilder(request)
+                                .let { response ->
+                                    this.stepForwardWhenSending(request, response)
+                                        .also {
+                                            otherPartySession.send(response)
+                                        }
+                                }
+                            else -> throw IllegalArgumentException("Unknown type $request")
+                        }
+                    }
+            }
+
+            progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
+            val responseAccumulator = ResponseAccumulator(
+                myCards = listOf(),
+                myNewBets = listOf(),
+                allNewBets = listOf(),
+                isDone = false
+            )
+                .doUntilIsRoundDone(looper)
+            progressTracker.currentStep = RECEIVED_ROUND_DONE
+
+            val allPlayerStateRefs = responseAccumulator.allNewBets
+                .also { allPlayerStates ->
+                    allPlayerStates.filter {
+                        it.state.data.owner == me
+                    }.also { myNewBets ->
+                        requireThat {
+                            "Only my new bets are in the list" using (myNewBets.toSet() == responseAccumulator.myNewBets.toSet())
+                        }
+                    }
+                }.map { it.ref }
 
             // TODO Conditionally receive a filtered transaction to sign
 
+            progressTracker.currentStep = SIGNING_TRANSACTION
+            val txId = if (responseAccumulator.myNewBets.isEmpty()) {
+                // We are actually sent the transaction hash because we have nothing to sign
+                progressTracker.currentStep = CHECKING_VALIDITY // We have to do it
+                otherPartySession.receive<SecureHash>().unwrap { it }
+            } else {
+                val signTransactionFlow =
+                    object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
+
+                        override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                            progressTracker.currentStep = CHECKING_VALIDITY
+                            // Making sure we see our previously received states, which have been checked
+                            "We should have only known allNewBets" using
+                                    (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
+                            "We should have the same cards" using
+                                    (stx.tx.outRefsOfType<GameState>().single().state.data.cards
+                                        .containsAll(responseAccumulator.myCards))
+                            // TODO check that my cards are at my index?
+                        }
+                    }
+                subFlow(signTransactionFlow).id
+            }
+
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
-            return subFlow(ReceiveFinalityFlow(otherPartySession))
+            return subFlow(ReceiveFinalityFlow(otherPartySession, expectedTxId = txId))
         }
     }
 }
