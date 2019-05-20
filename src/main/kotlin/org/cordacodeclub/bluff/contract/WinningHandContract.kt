@@ -2,18 +2,14 @@ package org.cordacodeclub.bluff.contract
 
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireThat
-import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
-import org.bouncycastle.jcajce.provider.asymmetric.dh.BCDHPublicKey
 import org.cordacodeclub.bluff.state.AssignedCard
-import org.cordacodeclub.bluff.state.ClearCard
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardSet
 import org.cordacodeclub.grom356.Hand
-import java.security.PublicKey
 
 class WinningHandContract: Contract {
     companion object {
@@ -35,7 +31,7 @@ class WinningHandContract: Contract {
             "There must be 52 cards in a game" using (inputGameState.cards.size == 52)
             "There must be one input game" using (tx.inputsOfType<GameState>().size == 1)
             "There must be no output gme" using (tx.outputsOfType<GameState>().isEmpty())
-            "There must be one output hand" using (outputHand != null)
+            "There must be one output hand" using (true)
             "The owner of the winning hands must be one of the players" using (tx.inputsOfType<PlayerHandState>()
                     .map { it.owner }.contains(winningHand.second))
             "The winning hand must be the same as the output hand" using (winningHand.first == outputHand)

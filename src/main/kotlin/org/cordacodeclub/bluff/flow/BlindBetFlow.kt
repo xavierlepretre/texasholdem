@@ -68,7 +68,7 @@ object BlindBetFlow {
             const val BLIND_PLAYER_COUNT = 2
         }
 
-        fun tracker() = ProgressTracker(
+        private fun tracker() = ProgressTracker(
             COLLECTING_BLINDBET_STATES,
             PINGING_OTHER_PLAYERS,
             SENDING_TOKEN_STATES_TO_PLAYERS,

@@ -30,12 +30,11 @@ object CreateGameFlow {
      */
     class GameCreator(val players: List<Party>, val blindBetId: SecureHash) : FlowLogic<SignedTransaction>() {
 
-        val blindBetTx: SignedTransaction
-        val potTokens: Map<Party, List<StateAndRef<TokenState>>>
+        private val blindBetTx: SignedTransaction = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
+        private val potTokens: Map<Party, List<StateAndRef<TokenState>>>
         val minter: Party
 
         init {
-            blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
             potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
                 .map { it.state.data.owner to it }
                 .toMultiMap()
@@ -218,9 +217,7 @@ object CreateGameFlow {
             val me = serviceHub.myInfo.legalIdentities.first()
             // TODO a real responder
             val userResponder = { _: CallOrRaiseRequest ->
-                Action.values().get(
-                    Random(System.currentTimeMillis()).nextInt() % Action.values().size
-                ) to 10L
+                Action.values()[Random(System.currentTimeMillis()).nextInt() % Action.values().size] to 10L
             }
 
             val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =

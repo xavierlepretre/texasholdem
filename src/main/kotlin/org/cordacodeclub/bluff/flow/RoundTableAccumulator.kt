@@ -21,7 +21,7 @@ enum class Action {
 
 @CordaSerializable
 // Marker interface that is sent to the responder flow when going round the table
-interface RoundTableRequest {}
+interface RoundTableRequest
 
 @CordaSerializable
 data class RoundTableDone(val allNewTokens: List<StateAndRef<TokenState>>) : RoundTableRequest
@@ -208,10 +208,11 @@ class RoundTableAccumulator(
 
         val updatedLastRaiseIndex = if (isRaise) currentPlayerIndex else lastRaiseIndex
         val updatedPlayerCountSinceLastRaise =
-            if (isRaise) 0
-            else if (isFolded) playerCountSinceLastRaise
-            else playerCountSinceLastRaise + 1
-
+                when {
+                    isRaise -> 0
+                    isFolded -> playerCountSinceLastRaise
+                    else -> playerCountSinceLastRaise + 1
+                }
         return RoundTableAccumulator(
             minter = minter,
             players = updatedPlayers,
