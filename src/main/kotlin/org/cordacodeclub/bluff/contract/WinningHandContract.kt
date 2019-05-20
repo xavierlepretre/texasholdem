@@ -24,34 +24,40 @@ class WinningHandContract: Contract {
         val inputHands = tx.inputsOfType<PlayerHandState>()
         val inputGameState = tx.inputsOfType<GameState>().single()
         val inputCards = inputGameState.cards
-        val outputHands = tx.outputsOfType<PlayerHandState>()
-
+        val outputHand = getPlayerHands(tx.outputsOfType<PlayerHandState>().single(), inputGameState.cards).first
+        val winningHand = winningHand(inputHands, inputGameState.cards)
 
         requireThat {
             inputHands.map {
                 "There must be 5 cards for player ${it.owner}" using (it.cardIndexes.size == 5)
                 "The cards must belong to ${it.owner}, but found ${inputCards[it.cardIndexes.first()].owner}" using
-                        (inputCards[it.cardIndexes.first()].owner == it.owner)
-            }
+                        (inputCards[it.cardIndexes.first()].owner == it.owner) }
+            "There must be 52 cards in a game" using (inputGameState.cards.size == 52)
             "There must be one input game" using (tx.inputsOfType<GameState>().size == 1)
             "There must be no output gme" using (tx.outputsOfType<GameState>().isEmpty())
-
-            //sortedWith
-            //compareTo(Hand)
+            "There must be one output hand" using (outputHand != null)
+            "The owner of the winning hands must be one of the players" using (tx.inputsOfType<PlayerHandState>()
+                    .map { it.owner }.contains(winningHand.second))
+            "The winning hand must be the same as the output hand" using (winningHand.first == outputHand)
         }
     }
-
 }
 
-fun sortedHands(gameHandStates: List<PlayerHandState>, gameCards: List<AssignedCard>) : List<Hand> {
+fun winningHand(gameHandStates: List<PlayerHandState>, gameCards: List<AssignedCard>) : Pair<Hand, Party> {
     val handsList = gameHandStates.map {
-        val cardList: kotlin.collections.MutableList<Card> = java.util.ArrayList()
-        val playerCards = it.cardIndexes.map {
-            val card = gameCards[it].card!!
-            cardList.add(card)
-            card
-        }.toCollection(cardList)
-        Hand.eval(CardSet(playerCards))
+        val result = getPlayerHands(it, gameCards)
+        println("The hand for ${it.owner.name.organisation} is: " + result)
+        result
     }
-    return handsList.sortedWith(compareBy { it.compareTo(it) })
+    return handsList.sortedByDescending { it.first.value }.first()
+}
+
+fun getPlayerHands(gameHandState: PlayerHandState, gameCards: List<AssignedCard>) : Pair<Hand, Party> {
+    val cardList: kotlin.collections.MutableList<Card> = java.util.ArrayList()
+    val playerCards = gameHandState.cardIndexes.map {
+        val card = gameCards[it].card!!
+        cardList.add(card)
+        card
+    }.toCollection(cardList)
+    return Pair(Hand.eval(CardSet(playerCards)), gameHandState.owner)
 }

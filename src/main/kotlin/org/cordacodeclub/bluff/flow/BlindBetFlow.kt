@@ -7,17 +7,12 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
-import net.corda.core.node.services.Vault
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
-import net.corda.core.node.services.vault.builder
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.TokenContract
-import org.cordacodeclub.bluff.state.TokenSchemaV1
 import org.cordacodeclub.bluff.state.TokenState
 
 object BlindBetFlow {
