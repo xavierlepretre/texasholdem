@@ -14,8 +14,9 @@ import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.state.*
+import org.cordacodeclub.bluff.user.PlayerDatabaseService
+import org.cordacodeclub.bluff.user.UserResponder
 import org.cordacodeclub.grom356.Card
-import kotlin.random.Random
 
 //Initial flow
 object CreateGameFlow {
@@ -215,10 +216,8 @@ object CreateGameFlow {
         @Suspendable
         override fun call(): SignedTransaction {
             val me = serviceHub.myInfo.legalIdentities.first()
-            // TODO a real responder
-            val userResponder = { _: CallOrRaiseRequest ->
-                Action.values()[Random(System.currentTimeMillis()).nextInt() % Action.values().size] to 10L
-            }
+            val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
+            val userResponder = UserResponder(me, playerDatabaseService)
 
             val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
                 { request ->
@@ -229,8 +228,8 @@ object CreateGameFlow {
                         "Card should be assigned to me" using (request.yourCards.map { it.owner }.single() == me)
                         "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
                     }
-                    val userResponse = userResponder(request)
-                    when (userResponse.first) {
+                    val userResponse = userResponder.getAction(request)
+                    when (userResponse.action!!) {
                         Action.Call -> CallOrRaiseResponse(
                             serviceHub.vaultService.collectTokenStatesUntil(
                                 minter = request.minter,
@@ -242,7 +241,7 @@ object CreateGameFlow {
                             serviceHub.vaultService.collectTokenStatesUntil(
                                 minter = request.minter,
                                 owner = me,
-                                amount = request.lastRaise - request.yourWager + userResponse.second
+                                amount = request.lastRaise - request.yourWager + userResponse.addAmount
                             )
                         )
                         Action.Fold -> CallOrRaiseResponse()
