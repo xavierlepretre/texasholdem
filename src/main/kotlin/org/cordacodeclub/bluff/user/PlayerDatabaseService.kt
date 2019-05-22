@@ -23,17 +23,13 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun addActionRequest(actionRequest: ActionRequest): Pair<Int, ActionRequest> {
-        val query = "insert into ${tableName} values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+        val query = "insert into ${tableName} " +
+                "(party, cards, youBet, lastRaise, action, addAmount) " +
+                "values(?, ?, ?, ?, ?, ?);"
 
         val params = mapOf(
             1 to actionRequest.party,
-            2 to actionRequest.card1,
-            3 to actionRequest.card2,
-            4 to actionRequest.card3,
-            5 to actionRequest.card4,
-            6 to actionRequest.card5,
-            7 to actionRequest.card6,
-            8 to actionRequest.card7,
+            2 to actionRequest.cards,
             9 to actionRequest.youBet,
             10 to actionRequest.lastRaise,
             11 to "",
@@ -68,7 +64,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getActionRequest(id: Long): ActionRequest? {
-        val query = "select party, card1, card2, card3, card4, card5, card6, card7, youBet, " +
+        val query = "select party, cards, youBet, " +
                 "lastRaise, action, addAmount from $tableName where id = ?"
 
         val params = mapOf(1 to id)
@@ -76,13 +72,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
             ActionRequest(
                 id,
                 it.getString("party"),
-                it.getString("card1"),
-                it.getString("card2"),
-                it.getString("card3"),
-                it.getString("card4"),
-                it.getString("card5"),
-                it.getString("card6"),
-                it.getString("card7"),
+                it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
                 Action.valueOf(it.getString("action")),
@@ -97,20 +87,14 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getTopActionRequest(): ActionRequest? {
-        val query = "select id, party, card1, card2, card3, card4, card5, card6, card7, youBet, " +
+        val query = "select id, party, cards, youBet, " +
                 "lastRaise, action, addAmount from $tableName limit 1"
 
         val results = executeQuery(query, emptyMap()) {
             ActionRequest(
                 it.getLong("id"),
                 it.getString("party"),
-                it.getString("card1"),
-                it.getString("card2"),
-                it.getString("card3"),
-                it.getString("card4"),
-                it.getString("card5"),
-                it.getString("card6"),
-                it.getString("card7"),
+                it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
                 Action.valueOf(it.getString("action")),
@@ -123,19 +107,14 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     }
 
     /**
+     * Each card is 2 characters. There are at most 7 cards: 7 * 2 + 6 commas + 2 square brackets = 22
      */
     private fun setUpStorage() {
         val query = """
             create table if not exists $tableName(
                 id int not null auto_increment,
                 party varchar(64) not null,
-                card1 varchar(2) not null,
-                card2 varchar(2) not null,
-                card3 varchar(2) not null,
-                card4 varchar(2) not null,
-                card5 varchar(2) not null,
-                card6 varchar(2) not null,
-                card7 varchar(2) not null,
+                cards varchar(22) not null,
                 youBet int not null,
                 lastRaise int not null,
                 action varchar(10) not null,

@@ -14,8 +14,8 @@ class CardList {
 
     companion object {
 
-        fun Sequence<Card>.toString() =
-            joinTo(buffer = StringBuilder(), prefix = "[", separator = ",", postfix = "]")
+        fun toString(sequence: Sequence<Card>) =
+            sequence.joinTo(buffer = StringBuilder(), prefix = "[", separator = ",", postfix = "]")
                 .toString()
 
         private val listPattern = Pattern.compile("[0-9TJQKA][cdhs]")
@@ -31,6 +31,5 @@ class CardList {
             }
             return cardList
         }
-
     }
 }
