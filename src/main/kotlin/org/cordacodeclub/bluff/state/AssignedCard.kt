@@ -8,5 +8,6 @@ import org.cordacodeclub.grom356.Card
 interface AssignedCard {
     val card: Card?
     val encrytedCard : String?
+    val salt: String?
     val owner: Party
 }

@@ -6,8 +6,10 @@ import org.cordacodeclub.grom356.Card
 
 @CordaSerializable
 data class ClearCard(
-        override val card: Card,
-        override val owner: Party
+    override val card: Card,
+    override val salt: String,
+    override val owner: Party
 ) : AssignedCard {
-    override val encrytedCard: String? = null
+
+    override val encrytedCard = null
 }
