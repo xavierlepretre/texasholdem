@@ -2,7 +2,6 @@ package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
-import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
@@ -24,12 +23,14 @@ object MintTokenFlow {
      */
     class Minter(val players: List<Party>, val amountPerPlayer: Long) : FlowLogic<SignedTransaction>() {
 
-        init {
-            requireThat {
-                "amountPerPlayer must be >0" using (amountPerPlayer > 0)
-                "There needs at least 1 player" using (players.isNotEmpty())
-            }
-        }
+        // TODO remove this
+        // Moved this into the contract. IMO all checking should be in the contract. Alternatively, we can do this in the api.
+//        init {
+//            requireThat {
+//                "The number of tokens for each player must be more than 0" using (amountPerPlayer > 0)
+//                "There needs at least 1 player" using (players.isNotEmpty())
+//            }
+//        }
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -64,9 +65,9 @@ object MintTokenFlow {
             val notary = serviceHub.networkMapCache.notaryIdentities.first()
 
             progressTracker.currentStep = GENERATING_TRANSACTION
-            val minter = serviceHub.myInfo.legalIdentities.first()
+            val dealerMinter = serviceHub.myInfo.legalIdentities.first()
             val command = Command(
-                TokenContract.Commands.Mint(), minter.owningKey
+                TokenContract.Commands.Mint(), dealerMinter.owningKey
             )
 
             val txBuilder = TransactionBuilder(notary = notary)
@@ -76,7 +77,7 @@ object MintTokenFlow {
             players.forEach { player ->
                 (1..amountPerPlayer).forEach { _ ->
                     // We issue many tokens of 1 each to facilitate betting.
-                    txBuilder.addOutputState(TokenState(minter = minter, owner = player, amount = 1, isPot = false))
+                    txBuilder.addOutputState(TokenState(minter = dealerMinter, owner = player, amount = 1, isPot = false))
                 }
             }
 

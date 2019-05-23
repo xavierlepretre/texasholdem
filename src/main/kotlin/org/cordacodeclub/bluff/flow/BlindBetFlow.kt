@@ -36,13 +36,15 @@ object BlindBetFlow {
      */
     class Initiator(val players: List<Party>, val minter: Party, val smallBet: Long) : FlowLogic<SignedTransaction>() {
 
-        init {
-            requireThat {
-                "BLIND_PLAYER_COUNT needs to be at least 2, it is $BLIND_PLAYER_COUNT" using (BLIND_PLAYER_COUNT >= 2)
-                "Small Bet cannot be 0" using (smallBet > 0)
-                "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
-            }
-        }
+        // TODO remove this
+        // Moved this into the contract. IMO all checking should be in the contract. Alternatively, we can do this in the api.
+//        init {
+//            requireThat {
+//                "BLIND_PLAYER_COUNT needs to be at least 2, it is $BLIND_PLAYER_COUNT" using (BLIND_PLAYER_COUNT >= 2)
+//                "Small Bet cannot be 0" using (smallBet > 0)
+//                "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
+//            }
+//        }
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -219,7 +221,6 @@ object BlindBetFlow {
                     return SignTransactionFlow.tracker()
                 }
             }
-
             object CHECKING_VALIDITY : ProgressTracker.Step("Checking transaction validity.")
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 

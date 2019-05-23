@@ -36,6 +36,7 @@ object CreateGameFlow {
     class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash) :
         FlowLogic<SignedTransaction>() {
 
+        //can't we get the players from the blindBet transaction?
         private val blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
         private val potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
             .map { it.state.data.owner to it }

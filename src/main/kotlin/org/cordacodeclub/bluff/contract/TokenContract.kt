@@ -52,6 +52,9 @@ class TokenContract : Contract {
 
         when (command.value) {
             is Commands.Mint -> requireThat {
+                "The number of tokens for each player must be more than 0" using (inAmount > 0)
+                "There needs at least 1 player" using (inOwners.isNotEmpty())
+
                 "There should be no inputs when Minting" using (inputTokens.isEmpty())
                 "There should be at least one output TokenState when Minting" using (outputTokenCount > 0)
                 "There should be no output Pot State when Minting" using (outputPotCount == 0)
@@ -68,6 +71,11 @@ class TokenContract : Contract {
             }
 
             is Commands.BetToPot -> requireThat {
+                "There should be at least 2 players betting" using (inputSigners.size >= 2)
+                //we know the first better always has the small bet
+                "Small Bet cannot be 0" using (sortedInputs.first.first().amount > 0)
+                "There needs at least $inputSigners.size players" using (inOwners.size >= inputSigners.size)
+
                 "There should be at least one input TokenState when Betting" using (inputTokenCount > 0)
                 // There can be pot states in inputs if we are in a next round
                 "There should be no output TokenState when Betting" using (outputTokenCount == 0)
