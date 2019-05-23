@@ -10,9 +10,7 @@ import org.cordacodeclub.bluff.state.AssignedCard.Companion.SALT_LENGTH
 import org.cordacodeclub.grom356.Card
 import kotlin.random.Random
 
-data class CardDeckInfo(
-    val cards: List<AssignedCard>
-) {
+data class CardDeckInfo(val cards: List<AssignedCard>) {
 
     val merkleTree: MerkleTree by lazy {
         cards.map {
@@ -21,6 +19,7 @@ data class CardDeckInfo(
             MerkleTree.getMerkleTree(it)
         }
     }
+
     // The Merkle tree root hash of the assigned cards. This is the unique identifier of the assigned deck.
     val rootHash: SecureHash by lazy {
         merkleTree.hash

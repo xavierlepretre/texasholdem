@@ -37,7 +37,7 @@ data class CallOrRaiseRequest(
     RoundTableRequest {
     init {
         requireThat {
-            "There can be only $CARDS_PER_PLAYER cards" using (yourCards.size == CARDS_PER_PLAYER)
+            "There must be at least $CARDS_PER_PLAYER cards" using (yourCards.size >= CARDS_PER_PLAYER)
             "Your wager cannot be higher than the last raise" using (yourWager <= lastRaise)
             "Cards must be of the same assignee" using (yourCards.map { it.owner }.size == 1)
         }

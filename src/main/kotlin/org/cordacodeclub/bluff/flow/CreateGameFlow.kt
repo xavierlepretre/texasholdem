@@ -2,7 +2,6 @@ package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
-import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
@@ -34,26 +33,24 @@ object CreateGameFlow {
      * @param players list of parties joining the game
      * @param blindBetId the hash of the transaction that ran the blind bets
      */
-    class GameCreator(val players: List<Party>, val blindBetId: SecureHash) : FlowLogic<SignedTransaction>() {
+    class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash) :
+        FlowLogic<SignedTransaction>() {
 
-        private val blindBetTx: SignedTransaction = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
-        private val potTokens: Map<Party, List<StateAndRef<TokenState>>>
-        val minter: Party
+        private val blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
+        private val potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
+            .map { it.state.data.owner to it }
+            .toMultiMap()
+        private val minter = potTokens.entries.flatMap { entry ->
+            entry.value.map { it.state.data.minter }
+        }.toSet().single()
 
         init {
-            potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
-                .map { it.state.data.owner to it }
-                .toMultiMap()
-            minter = potTokens.entries.flatMap { entry ->
-                entry.value.map { it.state.data.minter }
-            }.toSet().single()
             requireThat {
                 val blindBetParticipants = blindBetTx.inputs.flatMap {
                     serviceHub.toStateAndRef<TokenState>(it).state.data.participants
                 }.toSet()
                 "There needs at least 2 players" using (players.size >= 2)
-                "We should have the same players as in blind bet" using
-                        (blindBetParticipants == players.toSet())
+                "We should have the same players as in blind bet" using (blindBetParticipants == players.toSet())
             }
         }
 
@@ -73,11 +70,9 @@ object CreateGameFlow {
                 ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
                 override fun childProgressTracker() = FinalityFlow.tracker()
             }
-
-            const val COMMUNITY_CARDS_COUNT = 3
         }
 
-        fun tracker() = ProgressTracker(
+        private fun tracker() = ProgressTracker(
             GENERATING_TRANSACTION,
             VERIFYING_TRANSACTION,
             SIGNING_TRANSACTION,
@@ -91,13 +86,13 @@ object CreateGameFlow {
         override fun call(): SignedTransaction {
 
             val dealer = serviceHub.myInfo.legalIdentities.first()
-            val cardDeckDatabaseService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
             val allFlows = players.map { initiateFlow(it) }
 
             val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-
-            // Save deck to database
-            cardDeckDatabaseService.addDeck(deckInfo)
+                .also {
+                    // Save deck to database
+                    serviceHub.cordaService(CardDeckDatabaseService::class.java).addDeck(it)
+                }
 
             // 3rd player starts
             // Send only their cards to each player, ask for bets
@@ -131,7 +126,6 @@ object CreateGameFlow {
                 allFlows.forEach { it.send(this) }
             }
 
-
             progressTracker.currentStep = GENERATING_TRANSACTION
             // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
             val txBuilder = TransactionBuilder(notary = blindBetTx.notary)
@@ -144,7 +138,12 @@ object CreateGameFlow {
                         )
                     )
                     it.addOutputState(
-                        GameState(deckInfo.merkleTree, deckInfo.cards, players.plus(dealer)),
+                        GameState(
+                            deckInfo.merkleTree,
+                            // At this stage, we are hiding all cards
+                            deckInfo.cards.map { null },
+                            players.plus(dealer)
+                        ),
                         GameContract.ID
                     )
                     Unit

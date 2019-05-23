@@ -4,6 +4,7 @@ import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
 import org.cordacodeclub.bluff.db.DatabaseService
 import org.cordacodeclub.bluff.flow.Action
+import org.cordacodeclub.grom356.CardList.Companion.toString
 
 /**
  * A database service subclass for handling a table of requests to player.
@@ -24,12 +25,12 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
      */
     fun addActionRequest(actionRequest: ActionRequest): Pair<Int, ActionRequest> {
         val query = "insert into ${tableName} " +
-                "(party, cards, youBet, lastRaise, action, addAmount) " +
+                "(player, cards, youBet, lastRaise, action, addAmount) " +
                 "values(?, ?, ?, ?, ?, ?);"
 
         val params = mapOf(
-            1 to actionRequest.party,
-            2 to actionRequest.cards,
+            1 to actionRequest.player.toString(),
+            2 to toString(actionRequest.cards.asSequence()),
             9 to actionRequest.youBet,
             10 to actionRequest.lastRaise,
             11 to "",
@@ -64,14 +65,14 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getActionRequest(id: Long): ActionRequest? {
-        val query = "select party, cards, youBet, " +
+        val query = "select player, cards, youBet, " +
                 "lastRaise, action, addAmount from $tableName where id = ?"
 
         val params = mapOf(1 to id)
         val results = executeQuery(query, params) {
             ActionRequest(
                 id,
-                it.getString("party"),
+                it.getString("player"),
                 it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
@@ -87,13 +88,13 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getTopActionRequest(): ActionRequest? {
-        val query = "select id, party, cards, youBet, " +
+        val query = "select id, player, cards, youBet, " +
                 "lastRaise, action, addAmount from $tableName limit 1"
 
         val results = executeQuery(query, emptyMap()) {
             ActionRequest(
                 it.getLong("id"),
-                it.getString("party"),
+                it.getString("player"),
                 it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
@@ -113,7 +114,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
         val query = """
             create table if not exists $tableName(
                 id int not null auto_increment,
-                party varchar(64) not null,
+                player varchar(64) not null,
                 cards varchar(22) not null,
                 youBet int not null,
                 lastRaise int not null,
