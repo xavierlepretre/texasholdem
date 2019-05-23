@@ -43,7 +43,7 @@ class MintTokenFlowTest {
         player2 = player2Node.info.singleIdentity()
 
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
-        listOf(minterNode, player2Node, player1Node).forEach {
+        listOf(minterNode, player1Node, player2Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
         }
         network.runNetwork()

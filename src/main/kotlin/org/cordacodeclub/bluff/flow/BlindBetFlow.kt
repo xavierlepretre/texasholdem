@@ -284,7 +284,7 @@ object BlindBetFlow {
                     object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
 
                         override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                            progressTracker.currentStep = CHECKING_VALIDITY
+                            this@CollectorAndSigner.progressTracker.currentStep = CHECKING_VALIDITY
                             // Making sure we see our previously received states, which have been checked
                             "We should have only known moreBets" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                         }

@@ -14,7 +14,6 @@ fun VaultService.collectTokenStatesUntil(
     minter: Party,
     owner: Party,
     amount: Long): List<StateAndRef<TokenState>> {
-    val vaultService = this
     if (amount == 0L) return listOf()
     var remainingAmount = amount
     return builder {
@@ -28,11 +27,12 @@ fun VaultService.collectTokenStatesUntil(
         val unconsumedCriteria: QueryCriteria =
             QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
         val criteria = unconsumedCriteria.and(minterCriteria).and(ownerCriteria).and(isNotPotCriteria)
-        vaultService.queryBy<TokenState>(criteria).states
+        this@collectTokenStatesUntil.queryBy<TokenState>(criteria).states
     }.takeWhile {
         // TODO avoid paying more than necessary
         // TODO soft lock the unconsumed states?
+        val beforeAmount = remainingAmount
         remainingAmount -= it.state.data.amount
-        remainingAmount > 0
+        beforeAmount > 0
     }
 }
