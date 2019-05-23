@@ -12,7 +12,7 @@ import org.cordacodeclub.bluff.dealer.containsAll
 data class GameState(
     // We anonymise cards like that
     val tree: MerkleTree,
-    // At some point the cards that can be disclosed will be added
+    // At some point the cards that can be disclosed will replace the nulls.
     val cards: List<AssignedCard?>,
     override val participants: List<AbstractParty>
 ) : ContractState {
