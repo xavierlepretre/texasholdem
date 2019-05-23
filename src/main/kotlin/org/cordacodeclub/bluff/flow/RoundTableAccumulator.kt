@@ -9,6 +9,7 @@ import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
+import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.TokenState
@@ -36,7 +37,7 @@ data class CallOrRaiseRequest(
     RoundTableRequest {
     init {
         requireThat {
-            "There can be only 2 cards" using (yourCards.size == CreateGameFlow.GameCreator.PLAYER_CARD_COUNT)
+            "There can be only $CARDS_PER_PLAYER cards" using (yourCards.size == CARDS_PER_PLAYER)
             "Your wager cannot be higher than the last raise" using (yourWager <= lastRaise)
             "Cards must be of the same assignee" using (yourCards.map { it.owner }.size == 1)
         }
@@ -208,11 +209,11 @@ class RoundTableAccumulator(
 
         val updatedLastRaiseIndex = if (isRaise) currentPlayerIndex else lastRaiseIndex
         val updatedPlayerCountSinceLastRaise =
-                when {
-                    isRaise -> 0
-                    isFolded -> playerCountSinceLastRaise
-                    else -> playerCountSinceLastRaise + 1
-                }
+            when {
+                isRaise -> 0
+                isFolded -> playerCountSinceLastRaise
+                else -> playerCountSinceLastRaise + 1
+            }
         return RoundTableAccumulator(
             minter = minter,
             players = updatedPlayers,

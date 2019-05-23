@@ -2,6 +2,7 @@ package org.cordacodeclub.bluff.user
 
 import net.corda.core.identity.Party
 import org.cordacodeclub.bluff.flow.CallOrRaiseRequest
+import org.cordacodeclub.grom356.CardList
 
 class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseService) {
 
@@ -15,13 +16,7 @@ class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseServ
             ActionRequest(
                 id = 0L,
                 party = me.toString(),
-                card1 = request.yourCards[0].card!!.toString(),
-                card2 = request.yourCards[1].card!!.toString(),
-                card3 = "",
-                card4 = "",
-                card5 = "",
-                card6 = "",
-                card7 = "",
+                cards = CardList.toString(request.yourCards.map { it.card!! }.asSequence()),
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
                 action = null,

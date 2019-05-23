@@ -13,10 +13,15 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
-import org.cordacodeclub.bluff.state.*
+import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
+import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
+import org.cordacodeclub.bluff.dealer.has
+import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.GameState
+import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.bluff.user.PlayerDatabaseService
 import org.cordacodeclub.bluff.user.UserResponder
-import org.cordacodeclub.grom356.Card
 
 //Initial flow
 object CreateGameFlow {
@@ -69,7 +74,6 @@ object CreateGameFlow {
                 override fun childProgressTracker() = FinalityFlow.tracker()
             }
 
-            const val PLAYER_CARD_COUNT = 2
             const val COMMUNITY_CARDS_COUNT = 3
         }
 
@@ -86,20 +90,14 @@ object CreateGameFlow {
         @Suspendable
         override fun call(): SignedTransaction {
 
+            val dealer = serviceHub.myInfo.legalIdentities.first()
+            val cardDeckDatabaseService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
             val allFlows = players.map { initiateFlow(it) }
 
-            // TODO better shuffling algorithm?
-            val shuffled = Card.newDeck().shuffled()
+            val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
 
-            // TODO Encrypt first cards with player's key and last cards with dealer's key
-
-            // Assign cards
-            val assignedCards: List<AssignedCard> = shuffled.mapIndexed { index, card ->
-                val playerIndex: Int = index / 2
-                if (playerIndex < players.size) ClearCard(card, players[playerIndex]) // TODO encrypt
-                else if (playerIndex < players.size + 5) ClearCard(card, minter) // TODO encrypt Future river
-                else ClearCard(card, minter) // TODO encrypt
-            }
+            // Save deck to database
+            cardDeckDatabaseService.addDeck(deckInfo)
 
             // 3rd player starts
             // Send only their cards to each player, ask for bets
@@ -118,8 +116,8 @@ object CreateGameFlow {
                     minter = minter,
                     lastRaise = accumulator.currentLevel,
                     yourWager = accumulator.currentPlayerSum,
-                    yourCards = assignedCards.drop(accumulator.currentPlayerIndex * PLAYER_CARD_COUNT).take(
-                        PLAYER_CARD_COUNT
+                    yourCards = deckInfo.cards.drop(accumulator.currentPlayerIndex * CARDS_PER_PLAYER).take(
+                        CARDS_PER_PLAYER
                     )
                 ).let { request ->
                     allFlows[accumulator.currentPlayerIndex].sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
@@ -145,7 +143,11 @@ object CreateGameFlow {
                             listOf(serviceHub.myInfo.legalIdentities.first().owningKey)
                         )
                     )
-                    it.addOutputState(GameState(assignedCards), GameContract.ID)
+                    it.addOutputState(
+                        GameState(deckInfo.merkleTree, deckInfo.cards, players.plus(dealer)),
+                        GameContract.ID
+                    )
+                    Unit
                 }
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
@@ -225,7 +227,7 @@ object CreateGameFlow {
                     requireThat {
                         "We should be starting with no card or be sent the same cards again"
                             .using(myCards.isEmpty() || request.yourCards == myCards)
-                        "Card should be assigned to me" using (request.yourCards.map { it.owner }.single() == me)
+                        "Card should be assigned to me" using (request.yourCards.map { it.owner }.single() == me.name)
                         "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
                     }
                     val userResponse = userResponder.getAction(request)
@@ -303,8 +305,8 @@ object CreateGameFlow {
                             "We should have only known allNewBets" using
                                     (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                             "We should have the same cards" using
-                                    (stx.tx.outRefsOfType<GameState>().single().state.data.cards
-                                        .containsAll(responseAccumulator.myCards))
+                                    (stx.tx.outRefsOfType<GameState>().single().state.data.tree
+                                        .has(responseAccumulator.myCards))
                             // TODO check that my cards are at my index?
                         }
                     }

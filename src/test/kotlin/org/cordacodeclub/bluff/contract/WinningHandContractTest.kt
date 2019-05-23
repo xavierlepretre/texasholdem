@@ -2,7 +2,7 @@ package org.cordacodeclub.bluff.contract
 
 import net.corda.core.identity.CordaX500Name
 import net.corda.testing.core.TestIdentity
-import org.cordacodeclub.bluff.state.ClearCard
+import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.grom356.Card
 
@@ -19,21 +19,21 @@ fun main(args: Array<String>) {
     val playerAHand = PlayerHandState(listOf(0,1,6,7,8), testPartyA.party)
     val playerACards = playerAHand.cardIndexes.map { cards[it] }
     println("PlayerA cards:" + playerACards.map { it })
-    val playerACardsAssignedOnly = playerACards.take(2).map { ClearCard(it, testPartyA.party) }
+    val playerACardsAssignedOnly = playerACards.take(2).map { AssignedCard(it, "123", testPartyA.party.name) }
 
 
     val playerBHand = PlayerHandState(listOf(2,3,6,7,8), testPartyB.party)
     val playerBCards = playerBHand.cardIndexes.map { cards[it] }
     println("PlayerB cards:" + playerBCards.map { it })
-    val playerBCardsAssignedOnly = playerBCards.take(2).map { ClearCard(it, testPartyB.party) }
+    val playerBCardsAssignedOnly = playerBCards.take(2).map { AssignedCard(it, "234", testPartyB.party.name) }
 
     val playerCHand = PlayerHandState(listOf(4,5,6,7,8), testPartyC.party)
     val playerCCards = playerCHand.cardIndexes.map { cards[it] }
     println("PlayerC cards:" + playerCCards.map { it })
-    val playerCCardsAssignedOnly = playerCCards.take(2).map { ClearCard(it, testPartyC.party) }
+    val playerCCardsAssignedOnly = playerCCards.take(2).map { AssignedCard(it, "345", testPartyC.party.name) }
 
     val remainingCards = cards - cards.take(6)
-    val remainingCardsAssigned = remainingCards.map { ClearCard(it, testDealer.party) }
+    val remainingCardsAssigned = remainingCards.map { AssignedCard(it, "456", testDealer.party.name) }
 
     val gameCards = (playerACardsAssignedOnly + playerBCardsAssignedOnly + playerCCardsAssignedOnly + remainingCardsAssigned)
     val playerHandStates =  listOf(playerAHand, playerBHand, playerCHand)

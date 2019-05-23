@@ -1,13 +1,14 @@
 package org.cordacodeclub.bluff.dealer
 
+import net.corda.core.crypto.SecureHash
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
 import org.cordacodeclub.bluff.db.DatabaseService
-import org.cordacodeclub.grom356.CardList
+import org.cordacodeclub.bluff.state.AssignedCard
 
 /**
- * A database service subclass for handling a table of salted decks of cards. There is one such deck
- * per game.
+ * A database service subclass for handling a table of salted decks of assigned cards. There is one such deck
+ * per game. Each deck is identified by its Merkle root hash.
  * @param services The node's service hub.
  */
 @CordaService
@@ -17,79 +18,70 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
     }
 
     companion object {
-        val tableName = "POKER_CARD_DECK"
+        val tableName = "ASSIGNED_POKER_CARD"
     }
 
-    /**
-     */
-    fun addCardDeck(deck: CardDeckInfo): Pair<Int, CardDeckInfo> {
-        val query = "insert into ${tableName} (cards, salts, rootHash) values(?, ?, ?);"
-        val params = mapOf(
-            1 to CardList.toString(deck.cards.asSequence()),
-            2 to CardDeckInfo.toString(deck.salts.asSequence()),
-            3 to deck.rootHash.bytes)
+    fun addDeck(deck: CardDeckInfo) {
+        val query = "insert into ${tableName} (rootHash, index, card, salt, owner) values(?, ?, ?, ?, ?);"
 
-        val rowCount = executeUpdate(query, params)
-        log.info("CardDeckInfo $deck added to $tableName table.")
-        val lastIdQuery = "select last_insert_id();"
-        val lastId = executeQuery(lastIdQuery, mapOf()) {
-            it.getLong("last_insert_id")
-        }.single()
-        return rowCount to deck.copy(id = lastId)
+        val rowCount = deck.cards.mapIndexed { index, card ->
+            executeUpdate(
+                query, mapOf(
+                    1 to deck.rootHash,
+                    2 to index,
+                    3 to card.card.toString(),
+                    4 to card.salt,
+                    5 to card.owner.toString()
+                )
+            )
+        }.sum()
+        // Number may be smaller than 52 if rows already exist.
+        log.info("CardDeckInfo $deck added $rowCount rows to $tableName table.")
     }
 
-    /**
-     */
-    fun getCardDeck(id: Long): CardDeckInfo? {
-        val query = "select id, cards, salts from $tableName where id = ?"
+    fun getCardDeck(rootHash: SecureHash): CardDeckInfo? {
+        val query = "select index, card, salt, owner from $tableName where rootHash = ?"
 
-        val params = mapOf(1 to id)
-        val results = executeQuery(query, params) {
-            CardDeckInfo(
-                id,
-                it.getString("cards"),
-                it.getString("salts"),
-                it.getBytes("rootHash")
+        val params = mapOf(1 to rootHash.bytes)
+        val cards = executeQuery(query, params) {
+            AssignedCard(
+                card = it.getString("card"),
+                salt = it.getString("salt"),
+                owner = it.getString("owner")
             )
         }
 
-        log.info("Selected ${results.size} card decks from $tableName table.")
-        return results.firstOrNull()
+        log.info("Selected ${cards.size} cards from $tableName table.")
+        return when (cards.size) {
+            0 -> null
+            52 -> CardDeckInfo(cards)
+            else -> throw IllegalArgumentException("Collected wrong count of ${cards.size}")
+        }
     }
 
-    /**
-     */
-    fun getTopCardDeck(): CardDeckInfo? {
-        val query = "select id, cards from $tableName limit 1"
-
-        val results = executeQuery(query, emptyMap()) {
-            CardDeckInfo(
-                it.getLong("id"),
-                it.getString("cards"),
-                it.getString("salts"),
-                it.getBytes("rootHash")
-            )
+    fun getTopDeckRootHashes(n: Int) =
+        "select distinct rootHash from $tableName limit ?".let { query ->
+            executeQuery(query, mapOf(1 to n)) {
+                SecureHash.SHA256(it.getBytes("rootHash"))
+            }.also { results ->
+                log.info("Selected ${results.size} card decks from $tableName table.")
+            }
         }
 
-        log.info("Selected ${results.size} card decks from $tableName table.")
-        return results.firstOrNull()
-    }
-
-    /**
-     * each card is 2 characters long. 2 * 52 + 51 commans + 2 square brackets = 157
-     * each salt is 50 characters long. 50 * 52 + 51 commas + 2 square brackets = 2,653
-     */
     private fun setUpStorage() {
-        val query = """
+        val createTable = """
             create table if not exists $tableName(
-                id int not null auto_increment,
-                cards char(157) not null,
-                salts char(2653) not null,
-                rootHash binary(32) not null
+                rootHash binary(32) not null,
+                index int not null,
+                card char(2) not null,
+                salt char(50) not null,
+                owner varchar(256) not null
             );
-            alter table $tableName add primary key (id)"""
+            alter table $tableName
+                add primary key (rootHash, index)
+        """.trimIndent()
+        executeUpdate(createTable, emptyMap())
 
-        executeUpdate(query, emptyMap())
         log.info("Created $tableName table.")
     }
 }
