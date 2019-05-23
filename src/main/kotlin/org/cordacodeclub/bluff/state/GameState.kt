@@ -6,7 +6,7 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.MerkleTree
 import net.corda.core.identity.AbstractParty
 import org.cordacodeclub.bluff.contract.GameContract
-import org.cordacodeclub.bluff.dealer.has
+import org.cordacodeclub.bluff.dealer.containsAll
 
 @BelongsToContract(GameContract::class)
 data class GameState(
@@ -19,7 +19,7 @@ data class GameState(
 
     init {
         requireThat {
-            "Non null cards need to be in the tree" using (tree.has(cards.filterNotNull()))
+            "Non null cards need to be in the tree" using (tree.containsAll(cards.filterNotNull()))
         }
     }
 }

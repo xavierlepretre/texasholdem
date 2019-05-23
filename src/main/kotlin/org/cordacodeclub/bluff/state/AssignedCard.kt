@@ -1,8 +1,10 @@
 package org.cordacodeclub.bluff.state
 
 import net.corda.core.contracts.requireThat
+import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.serialization.serialize
 import org.cordacodeclub.grom356.Card
 
 @CordaSerializable
@@ -11,6 +13,10 @@ data class AssignedCard(
     val salt: String,
     val owner: CordaX500Name
 ) {
+
+    val hash: SecureHash by lazy {
+        serialize().hash
+    }
 
     constructor(card: String, salt: String, owner: String) : this(
         card = Card.valueOf(card),
@@ -28,3 +34,4 @@ data class AssignedCard(
         const val SALT_LENGTH = 50
     }
 }
+

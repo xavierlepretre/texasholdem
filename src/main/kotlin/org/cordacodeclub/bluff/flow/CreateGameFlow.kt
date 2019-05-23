@@ -15,7 +15,7 @@ import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
-import org.cordacodeclub.bluff.dealer.has
+import org.cordacodeclub.bluff.dealer.containsAll
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
@@ -305,7 +305,7 @@ object CreateGameFlow {
                                     (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                             "We should have the same cards" using
                                     (stx.tx.outRefsOfType<GameState>().single().state.data.tree
-                                        .has(responseAccumulator.myCards))
+                                        .containsAll(responseAccumulator.myCards))
                             // TODO check that my cards are at my index?
                         }
                     }

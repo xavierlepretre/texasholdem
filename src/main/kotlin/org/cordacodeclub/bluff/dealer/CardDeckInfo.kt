@@ -4,7 +4,6 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.MerkleTree
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
-import net.corda.core.serialization.serialize
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.AssignedCard.Companion.SALT_LENGTH
 import org.cordacodeclub.grom356.Card
@@ -14,7 +13,7 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
 
     val merkleTree: MerkleTree by lazy {
         cards.map {
-            it.serialize().hash
+            it.hash
         }.let {
             MerkleTree.getMerkleTree(it)
         }
@@ -57,16 +56,20 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
                 CardDeckInfo(it)
             }
     }
-
-    fun has(assignedCard: AssignedCard) = merkleTree.has(assignedCard)
 }
 
-fun MerkleTree.has(assignedCard: AssignedCard): Boolean = when (this) {
-    is MerkleTree.Leaf -> assignedCard.serialize().hash == this.hash
-    is MerkleTree.Node -> has(assignedCard) || has(assignedCard)
+fun MerkleTree.getLeaves(partBuilt : List<MerkleTree.Leaf> = emptyList()) : List<MerkleTree.Leaf> = when(this) {
+    is MerkleTree.Leaf -> partBuilt.plus(this)
+    is MerkleTree.Node -> partBuilt.plus(this.left.getLeaves().plus(this.right.getLeaves()))
     else -> throw IllegalArgumentException("Unkown type ${this::class}")
 }
 
-fun MerkleTree.has(assignedCards: List<AssignedCard>) = assignedCards
-    .map { has(it) }
-    .all { it }
+fun MerkleTree.containsAll(assignedCards: List<AssignedCard>) =
+    getLeaves().containsAll(assignedCards)
+
+fun List<MerkleTree.Leaf>.containsAll(assignedCards: List<AssignedCard>) =
+    map { it.hash }.containsAll(assignedCards.map { it.hash })
+
+fun List<MerkleTree.Leaf>.contains(assignedCard: AssignedCard) =
+    map { it.hash }.contains(assignedCard.hash)
+
