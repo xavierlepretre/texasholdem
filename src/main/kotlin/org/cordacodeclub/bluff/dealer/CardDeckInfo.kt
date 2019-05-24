@@ -40,7 +40,7 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
                 // Shuffle cards
                 // TODO better shuffling algorithm?
                 Card.newDeck().shuffled().map {
-                    it to nextBytes(SALT_LENGTH * 2).toString().take(SALT_LENGTH)
+                    it to nextBytes(SALT_LENGTH)
                 }
             }.let { saltedCards ->
                 saltedCards.mapIndexed { index, pair ->

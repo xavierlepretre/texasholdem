@@ -3,6 +3,9 @@
  */
 package org.cordacodeclub.grom356;
 
+import net.corda.core.serialization.CordaSerializable
+
+@CordaSerializable
 /**
  * A poker card. Aces are high and suit is not important in ranking.
  *
@@ -10,6 +13,7 @@ package org.cordacodeclub.grom356;
  */
 class Card(val rank: Rank, val suit: Suit) : Comparable<Card> {
 
+    @CordaSerializable
     enum class Suit {
         SPADE,
         HEART,
@@ -27,6 +31,7 @@ class Card(val rank: Rank, val suit: Suit) : Comparable<Card> {
         val letter = Character.toLowerCase(name[0])
     }
 
+    @CordaSerializable
     enum class Rank(val letter: Char, val value: Int) {
         ACE('A', 14),
         KING('K', 13),

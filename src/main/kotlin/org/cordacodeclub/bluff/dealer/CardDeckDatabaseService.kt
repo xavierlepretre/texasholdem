@@ -27,7 +27,7 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
         val rowCount = deck.cards.mapIndexed { index, card ->
             executeUpdate(
                 query, mapOf(
-                    1 to deck.rootHash,
+                    1 to deck.rootHash.bytes,
                     2 to index,
                     3 to card.card.toString(),
                     4 to card.salt,
@@ -46,7 +46,7 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
         val cards = executeQuery(query, params) {
             AssignedCard(
                 card = it.getString("card"),
-                salt = it.getString("salt"),
+                salt = it.getBytes("salt"),
                 owner = it.getString("owner")
             )
         }
@@ -74,7 +74,7 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
                 rootHash binary(32) not null,
                 index int not null,
                 card char(2) not null,
-                salt char(50) not null,
+                salt binary(50) not null,
                 owner varchar(256) not null
             );
             alter table $tableName

@@ -10,7 +10,7 @@ import org.cordacodeclub.grom356.Card
 @CordaSerializable
 data class AssignedCard(
     val card: Card,
-    val salt: String,
+    val salt: ByteArray,
     val owner: CordaX500Name
 ) {
 
@@ -18,7 +18,7 @@ data class AssignedCard(
         serialize().hash
     }
 
-    constructor(card: String, salt: String, owner: String) : this(
+    constructor(card: String, salt: ByteArray, owner: String) : this(
         card = Card.valueOf(card),
         salt = salt,
         owner = CordaX500Name.parse(owner)
@@ -26,7 +26,7 @@ data class AssignedCard(
 
     init {
         requireThat {
-            "salt must not be more than $SALT_LENGTH characters long" using (salt.length <= SALT_LENGTH)
+            "salt must not be more than $SALT_LENGTH characters long" using (salt.size <= SALT_LENGTH)
         }
     }
 

@@ -90,6 +90,7 @@ open class DatabaseService(private val services: ServiceHub) : SingletonSerializ
                 is Int -> preparedStatement.setInt(key, value)
                 is Long -> preparedStatement.setLong(key, value)
                 is Boolean -> preparedStatement.setBoolean(key, value)
+                is ByteArray -> preparedStatement.setBytes(key, value)
                 else -> throw IllegalArgumentException("Unsupported type.")
             }
         }
