@@ -26,6 +26,7 @@ class TransferOwnTokenFlow(
         requireThat {
             "Inputs sum should be the same as outputs sum" using
                     (inputStates.map { it.state.data.amount }.sum() == outputAmounts.sum())
+            "All output amounts should be > 0" using (outputAmounts.all { it > 0 })
         }
     }
 
