@@ -1,5 +1,6 @@
 package org.cordacodeclub.bluff.flow
 
+import net.corda.core.contracts.ContractState
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
@@ -8,6 +9,7 @@ import net.corda.core.utilities.getOrThrow
 import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
+import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
 import org.junit.Before
@@ -40,6 +42,7 @@ class BlindBetFlowTest {
         network = MockNetwork(
             listOf(
                 "org.cordacodeclub.bluff.contract",
+                "org.cordacodeclub.bluff.dealer",
                 "org.cordacodeclub.bluff.flow",
                 "org.cordacodeclub.bluff.state"
             )
@@ -84,9 +87,6 @@ class BlindBetFlowTest {
         val future = minterNode.startFlow(flow)
         network.runNetwork()
 
-        println(listOf(minter.owningKey, dealer.owningKey, player1.owningKey, player2.owningKey, player3.owningKey,
-            player4.owningKey))
-
         val signedTx = future.getOrThrow()
         signedTx.sigs.map { it.by }.toSet().also {
             assertTrue(it.contains(player1.owningKey))
@@ -108,15 +108,42 @@ class BlindBetFlowTest {
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
-        val inputs = signedTx.tx.inputs.map {
-            minterNode.services.toStateAndRef<TokenState>(it).state.data
+        val tokenInputs = signedTx.tx.inputs.map {
+            minterNode.services.toStateAndRef<ContractState>(it).state.data
+        }.filter {
+            it is TokenState
+        }.map {
+            it as TokenState
         }.map {
             assertEquals(minter, it.minter)
             it.owner to it
         }.toMultiMap()
-        assertEquals(setOf(player1, player2), inputs.keys)
-        assertEquals(4, inputs[player1]!!.map { it.amount }.sum())
-        assertEquals(8, inputs[player2]!!.map { it.amount }.sum())
+        assertEquals(setOf(player1, player2), tokenInputs.keys)
+        assertEquals(4, tokenInputs[player1]!!.map { it.amount }.sum())
+        assertEquals(8, tokenInputs[player2]!!.map { it.amount }.sum())
+    }
+
+    @Test
+    fun `SignedTransaction has outputs of TokenState`() {
+        val flow = BlindBetFlow.Initiator(
+            listOf(player1, player2, player3, player4),
+            minter,
+            4
+        )
+        // TODO replace minter with dealer when states are properly exchanged
+        val future = minterNode.startFlow(flow)
+        network.runNetwork()
+
+        val signedTx = future.getOrThrow()
+        val outputs = signedTx.tx.outputsOfType<TokenState>().map {
+            assertEquals(minter, it.minter)
+            it.owner to it
+        }.toMultiMap()
+        assertEquals(setOf(player1, player2), outputs.keys)
+        assertEquals(1, outputs[player1]!!.size)
+        assertEquals(1, outputs[player2]!!.size)
+        assertEquals(4, outputs[player1]!!.map { it.amount }.sum())
+        assertEquals(8, outputs[player2]!!.map { it.amount }.sum())
     }
 
     @Test
@@ -126,6 +153,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
+        // TODO replace minter with dealer when states are properly exchanged
         val future = minterNode.startFlow(flow)
         network.runNetwork()
 
@@ -133,5 +161,24 @@ class BlindBetFlowTest {
         for (node in listOf(player1Node, player2Node, player3Node, player4Node)) {
             assertEquals(signedTx, node.services.validatedTransactions.getTransaction(signedTx.id))
         }
+    }
+
+    @Test
+    fun `SignedTransaction has output of empty GameState`() {
+        val flow = BlindBetFlow.Initiator(
+            listOf(player1, player2, player3, player4),
+            minter,
+            4
+        )
+        // TODO replace minter with dealer when states are properly exchanged
+        val future = minterNode.startFlow(flow)
+        network.runNetwork()
+
+        val signedTx = future.getOrThrow()
+        val outputs = signedTx.tx.outputsOfType<GameState>()
+        assertEquals(1, outputs.size)
+        val gameState = outputs.single()
+        assertTrue(gameState.cards.all { it == null })
+        assertEquals(setOf(minter, player1, player2, player3, player4), gameState.participants.toSet())
     }
 }

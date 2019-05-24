@@ -3,6 +3,7 @@ package org.cordacodeclub.bluff.flow
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.requireThat
+import net.corda.core.crypto.MerkleTree
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
@@ -13,7 +14,6 @@ import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
-import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
 import org.cordacodeclub.bluff.dealer.containsAll
 import org.cordacodeclub.bluff.state.ActivePlayer
@@ -35,25 +35,6 @@ object CreateGameFlow {
      */
     class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash) :
         FlowLogic<SignedTransaction>() {
-
-        //can't we get the players from the blindBet transaction?
-        private val blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
-        private val potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
-            .map { it.state.data.owner to it }
-            .toMultiMap()
-        private val minter = potTokens.entries.flatMap { entry ->
-            entry.value.map { it.state.data.minter }
-        }.toSet().single()
-
-        init {
-            requireThat {
-                val blindBetParticipants = blindBetTx.inputs.flatMap {
-                    serviceHub.toStateAndRef<TokenState>(it).state.data.participants
-                }.toSet()
-                "There needs at least 2 players" using (players.size >= 2)
-                "We should have the same players as in blind bet" using (blindBetParticipants == players.toSet())
-            }
-        }
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -86,14 +67,25 @@ object CreateGameFlow {
         @Suspendable
         override fun call(): SignedTransaction {
 
+            val blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
+            val potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
+                .map { it.state.data.owner to it }
+                .toMultiMap()
+            val minter = potTokens.entries.flatMap { entry ->
+                entry.value.map { it.state.data.minter }
+            }.toSet().single()
+            val gameState = blindBetTx.tx.outRefsOfType<GameState>().single().state.data
+            val cardService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
+            val deckInfo = cardService.getCardDeck(MerkleTree.getMerkleTree(gameState.hashedCards).hash)!!
+
+            requireThat {
+                val blindBetParticipants = gameState.participants.toSet()
+                "There needs at least 2 players" using (players.size >= 2)
+                "We should have the same players as in blind bet" using (blindBetParticipants == players.toSet())
+            }
+
             val dealer = serviceHub.myInfo.legalIdentities.first()
             val allFlows = players.map { initiateFlow(it) }
-
-            val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-                .also {
-                    // Save deck to database
-                    serviceHub.cordaService(CardDeckDatabaseService::class.java).addDeck(it)
-                }
 
             // 3rd player starts
             // Send only their cards to each player, ask for bets
@@ -138,15 +130,7 @@ object CreateGameFlow {
                             listOf(serviceHub.myInfo.legalIdentities.first().owningKey)
                         )
                     )
-                    it.addOutputState(
-                        GameState(
-                            deckInfo.merkleTree,
-                            // At this stage, we are hiding all cards
-                            deckInfo.cards.map { null },
-                            players.plus(dealer)
-                        ),
-                        GameContract.ID
-                    )
+                    it.addOutputState(gameState, GameContract.ID)
                     Unit
                 }
 
@@ -220,6 +204,7 @@ object CreateGameFlow {
             val me = serviceHub.myInfo.legalIdentities.first()
             val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
             val userResponder = UserResponder(me, playerDatabaseService)
+            logger.info("created userResponder")
 
             val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
                 { request ->
@@ -305,7 +290,7 @@ object CreateGameFlow {
                             "We should have only known allNewBets" using
                                     (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                             "We should have the same cards" using
-                                    (stx.tx.outRefsOfType<GameState>().single().state.data.tree
+                                    (MerkleTree.getMerkleTree(stx.tx.outRefsOfType<GameState>().single().state.data.hashedCards)
                                         .containsAll(responseAccumulator.myCards))
                             // TODO check that my cards are at my index?
                         }

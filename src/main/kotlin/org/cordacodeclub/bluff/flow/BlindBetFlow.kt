@@ -12,7 +12,11 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
+import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
+import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 
 object BlindBetFlow {
@@ -36,15 +40,12 @@ object BlindBetFlow {
      */
     class Initiator(val players: List<Party>, val minter: Party, val smallBet: Long) : FlowLogic<SignedTransaction>() {
 
-        // TODO remove this
-        // Moved this into the contract. IMO all checking should be in the contract. Alternatively, we can do this in the api.
-//        init {
-//            requireThat {
-//                "BLIND_PLAYER_COUNT needs to be at least 2, it is $BLIND_PLAYER_COUNT" using (BLIND_PLAYER_COUNT >= 2)
-//                "Small Bet cannot be 0" using (smallBet > 0)
-//                "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
-//            }
-//        }
+        init {
+            requireThat {
+                "Small Bet cannot be 0" using (smallBet > 0)
+                "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
+            }
+        }
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -92,6 +93,13 @@ object BlindBetFlow {
 
             // Obtain a reference to the notary we want to use.
             val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val dealer = serviceHub.myInfo.legalIdentities.first()
+
+            val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
+                .also {
+                    // Save deck to database
+                    serviceHub.cordaService(CardDeckDatabaseService::class.java).addDeck(it)
+                }
 
             progressTracker.currentStep = COLLECTING_BLINDBET_STATES
 
@@ -156,15 +164,13 @@ object BlindBetFlow {
                     }
             }
 
-            val command = Command(
-                TokenContract.Commands.BetToPot(),
-                requiredSigners.map { it.owningKey }
-            )
-
             progressTracker.currentStep = GENERATING_TRANSACTION
             val txBuilder = TransactionBuilder(notary = notary)
 
-            txBuilder.addCommand(command)
+            txBuilder.addCommand(Command(
+                TokenContract.Commands.BetToPot(),
+                requiredSigners.map { it.owningKey }
+            ))
             playerStates.forEach { list ->
                 list.forEach {
                     txBuilder.addInputState(it)
@@ -173,6 +179,20 @@ object BlindBetFlow {
             potStates.forEach {
                 txBuilder.addOutputState(it, TokenContract.ID)
             }
+
+            txBuilder.addCommand(Command(
+                GameContract.Commands.Create(),
+                listOf(dealer.owningKey)
+            ))
+            txBuilder.addOutputState(
+                GameState(
+                    // At this stage, we are hiding all cards
+                    deckInfo.cards.map { it.hash },
+                    deckInfo.cards.map { null },
+                    players.plus(dealer)
+                ),
+                GameContract.ID
+            )
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
             txBuilder.verify(serviceHub)
