@@ -228,18 +228,26 @@ object CreateGameFlow {
                     val userResponse = userResponder.getAction(request)
                     when (userResponse.action!!) {
                         Action.Call -> CallOrRaiseResponse(
-                            serviceHub.vaultService.collectTokenStatesUntil(
-                                minter = request.minter,
-                                owner = me,
-                                amount = request.lastRaise - request.yourWager
+                            subFlow(
+                                TokenStateCollectorFlow(
+                                    TokenState(
+                                        request.minter, me,
+                                        request.lastRaise - request.yourWager,
+                                        false
+                                    )
+                                )
                             ),
                             serviceHub
                         )
                         Action.Raise -> CallOrRaiseResponse(
-                            serviceHub.vaultService.collectTokenStatesUntil(
-                                minter = request.minter,
-                                owner = me,
-                                amount = request.lastRaise - request.yourWager + userResponse.addAmount
+                            subFlow(
+                                TokenStateCollectorFlow(
+                                    TokenState(
+                                        request.minter, me,
+                                        request.lastRaise - request.yourWager + userResponse.addAmount,
+                                        false
+                                    )
+                                )
                             ),
                             serviceHub
                         )

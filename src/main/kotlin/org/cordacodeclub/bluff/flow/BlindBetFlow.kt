@@ -272,7 +272,12 @@ object BlindBetFlow {
          * checkpoint is reached in the code. See the 'progressTracker.currentStep' expressions within the call() function.
          */
         companion object {
-            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token moreBets.")
+            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token moreBets.") {
+                override fun childProgressTracker(): ProgressTracker {
+                    return TokenStateCollectorFlow.tracker()
+                }
+            }
+
             object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token moreBets.")
             object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token moreBets.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
@@ -312,10 +317,11 @@ object BlindBetFlow {
                 listOf()
             } else {
                 // Find the states to bet according to the amount requested
-                serviceHub.vaultService.collectTokenStatesUntil(
-                    minter = request.minter,
-                    owner = me,
-                    amount = request.amount
+                subFlow(
+                    TokenStateCollectorFlow(
+                        TokenState(request.minter, me, request.amount, false),
+                        RECEIVING_REQUEST_FOR_STATES.childProgressTracker()
+                    )
                 )
             }
 
