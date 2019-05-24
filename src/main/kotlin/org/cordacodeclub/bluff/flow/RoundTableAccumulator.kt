@@ -5,7 +5,9 @@ import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
+import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
@@ -51,24 +53,32 @@ data class CallOrRaiseRequest(
 class CallOrRaiseResponse {
     val isFold: Boolean
     val moreBets: List<StateAndRef<TokenState>>
+    val transactions: Set<SignedTransaction>
 
     // Fold constructor
     constructor() {
         isFold = true
         moreBets = listOf()
+        transactions = setOf()
     }
 
     // Call or raise constructor
-    constructor(states: List<StateAndRef<TokenState>>) {
+    constructor(states: List<StateAndRef<TokenState>>, txs: Set<SignedTransaction>) {
         requireThat {
             "All amounts must be strictly positive" using
                     (states.fold(true) { isPos, state ->
                         isPos && state.state.data.amount > 0
                     })
+            "All transactions must be relevant to the states and vice versa" using
+                    (states.map { it.ref.txhash }.toSet() == txs.map { it.id }.toSet())
         }
         isFold = false
         moreBets = states
+        transactions = txs
     }
+
+    constructor(states: List<StateAndRef<TokenState>>, serviceHub: ServiceHub) :
+            this(states, states.map { serviceHub.validatedTransactions.getTransaction(it.ref.txhash)!! }.toSet())
 }
 
 fun RoundTableAccumulator.doUntilIsRoundDone(stepper: (RoundTableAccumulator) -> RoundTableAccumulator): RoundTableAccumulator {
@@ -136,6 +146,7 @@ class RoundTableAccumulator(
     val committedPotSums: Map<Party, Long>,
     // They are being added to after each player
     val newBets: Map<Party, List<StateAndRef<TokenState>>>,
+    val newTransactions: Set<SignedTransaction>,
     val lastRaiseIndex: Int,
     // When the previous player raised, this gets reset to 0
     val playerCountSinceLastRaise: Int
@@ -151,6 +162,9 @@ class RoundTableAccumulator(
                 "Pot sum for ${it.key} must be positive" using (it.value >= 0)
             }
             "We need at least existing pot sums" using (committedPotSums.values.sum() > 0)
+            "All transactions must be relevant to the states and vice versa" using
+                    (newBets.flatMap { entry -> entry.value.map { it.ref.txhash } }.toSet()
+                            == newTransactions.map { it.id }.toSet())
             "lastRaiseIndex must be positive, not $lastRaiseIndex" using (lastRaiseIndex >= 0)
             "playerCountSinceLastRaise myst be positive, not $playerCountSinceLastRaise"
                 .using(playerCountSinceLastRaise >= 0)
@@ -206,6 +220,9 @@ class RoundTableAccumulator(
             else newBets.toList().plus(currentPlayer to response.moreBets)
                 .toMultiMap()
                 .mapValues { it.value.flatten() }
+        val updatedNewTransactions =
+            if (isFolded) newTransactions
+            else newTransactions.plus(response.transactions)
 
         val updatedLastRaiseIndex = if (isRaise) currentPlayerIndex else lastRaiseIndex
         val updatedPlayerCountSinceLastRaise =
@@ -220,6 +237,7 @@ class RoundTableAccumulator(
             currentPlayerIndex = nextActivePlayerIndex,
             committedPotSums = committedPotSums,
             newBets = updatedNewBets,
+            newTransactions = updatedNewTransactions,
             lastRaiseIndex = updatedLastRaiseIndex,
             playerCountSinceLastRaise = updatedPlayerCountSinceLastRaise
         )

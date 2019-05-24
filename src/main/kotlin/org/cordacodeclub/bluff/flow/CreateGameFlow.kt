@@ -8,6 +8,7 @@ import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
+import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
@@ -42,6 +43,7 @@ object CreateGameFlow {
          */
         companion object {
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
+            object SAVING_OTHER_TRANSACTIONS : ProgressTracker.Step("Saving transactions from other players.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.")
             object GATHERING_SIGS : ProgressTracker.Step("Gathering the counterparty's signature.") {
@@ -56,6 +58,7 @@ object CreateGameFlow {
 
         private fun tracker() = ProgressTracker(
             GENERATING_TRANSACTION,
+            SAVING_OTHER_TRANSACTIONS,
             VERIFYING_TRANSACTION,
             SIGNING_TRANSACTION,
             GATHERING_SIGS,
@@ -97,6 +100,7 @@ object CreateGameFlow {
                     entry.value.map { it.state.data.amount }.sum()
                 },
                 newBets = mapOf(),
+                newTransactions = setOf(),
                 lastRaiseIndex = 1,
                 playerCountSinceLastRaise = 0
             ).doUntilIsRoundDone { accumulator ->
@@ -118,6 +122,12 @@ object CreateGameFlow {
             with(RoundTableDone(accumulated.newBets.flatMap { it.value })) {
                 allFlows.forEach { it.send(this) }
             }
+
+            progressTracker.currentStep = SAVING_OTHER_TRANSACTIONS
+            // TODO check more the transactions before saving them?
+            serviceHub.recordTransactions(
+                statesToRecord = StatesToRecord.ALL_VISIBLE, txs = accumulated.newTransactions
+            )
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
@@ -222,14 +232,16 @@ object CreateGameFlow {
                                 minter = request.minter,
                                 owner = me,
                                 amount = request.lastRaise - request.yourWager
-                            )
+                            ),
+                            serviceHub
                         )
                         Action.Raise -> CallOrRaiseResponse(
                             serviceHub.vaultService.collectTokenStatesUntil(
                                 minter = request.minter,
                                 owner = me,
                                 amount = request.lastRaise - request.yourWager + userResponse.addAmount
-                            )
+                            ),
+                            serviceHub
                         )
                         Action.Fold -> CallOrRaiseResponse()
                     }

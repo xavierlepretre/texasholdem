@@ -1,11 +1,14 @@
 package org.cordacodeclub.bluff.flow
 
+import com.nhaarman.mockito_kotlin.mock
+import com.nhaarman.mockito_kotlin.whenever
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.StateRef
 import net.corda.core.contracts.TransactionState
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
+import net.corda.core.transactions.SignedTransaction
 import net.corda.testing.core.TestIdentity
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
@@ -28,6 +31,12 @@ class RoundTableAccumulatorTest {
         StateRef(SecureHash.zeroHash, 0)
     )
 
+    private fun create0TxSet(): Set<SignedTransaction> {
+        val mocked = mock<SignedTransaction>()
+        whenever(mocked.id).then { SecureHash.zeroHash }
+        return setOf(mocked)
+    }
+
     @Test
     fun `player2 raised in pot - player0 folds`() {
         val players = listOf(
@@ -41,6 +50,7 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 0,
             committedPotSums = mapOf(player2.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 2,
             playerCountSinceLastRaise = 0
         ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse())
@@ -80,9 +90,15 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 0,
             committedPotSums = mapOf(player2.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 2,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player0.party, 10L))))
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player0.party, 10L)),
+                create0TxSet()
+            )
+        )
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(players, resultRound.players)
@@ -115,9 +131,15 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 0,
             committedPotSums = mapOf(player2.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 2,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player0.party, 20L))))
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player0.party, 20L)),
+                create0TxSet()
+            )
+        )
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(players, resultRound.players)
@@ -150,10 +172,20 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 2,
             committedPotSums = mapOf(player1.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 1,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player2.party, 10L))))
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player0.party, 15L))))
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player2.party, 10L)),
+                create0TxSet()
+            )
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player0.party, 15L)),
+                create0TxSet()
+            )
+        )
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(players, resultRound.players)
@@ -189,11 +221,22 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 2,
             committedPotSums = mapOf(player1.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 1,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player2.party, 10L))))
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player0.party, 10L))))
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf()))
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player2.party, 10L)),
+                create0TxSet()
+            )
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player0.party, 10L)),
+                create0TxSet()
+            )
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(listOf(), setOf())
+        )
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(players, resultRound.players)
@@ -230,11 +273,19 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 2,
             committedPotSums = mapOf(player1.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 1,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse())
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player0.party, 10L))))
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf()))
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse()
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player0.party, 10L)),
+                create0TxSet()
+            )
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(listOf(), setOf())
+        )
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(
@@ -277,11 +328,17 @@ class RoundTableAccumulatorTest {
             currentPlayerIndex = 2,
             committedPotSums = mapOf(player1.party to 10L),
             newBets = emptyMap(),
+            newTransactions = setOf(),
             lastRaiseIndex = 1,
             playerCountSinceLastRaise = 0
-        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse(listOf(createToken(player2.party, 15L))))
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse())
-            .stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse())
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse(
+                listOf(createToken(player2.party, 15L)),
+                create0TxSet()
+            )
+        ).stepForwardWhenCurrentPlayerSent(
+            CallOrRaiseResponse()
+        ).stepForwardWhenCurrentPlayerSent(CallOrRaiseResponse())
 
         assertEquals(minter.party, resultRound.minter)
         assertEquals(
@@ -307,5 +364,4 @@ class RoundTableAccumulatorTest {
         assertEquals(1, resultRound.activePlayerCount)
         assertTrue(resultRound.isRoundDone)
     }
-
 }

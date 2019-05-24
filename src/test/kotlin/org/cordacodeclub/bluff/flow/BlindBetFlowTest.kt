@@ -83,8 +83,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
-        // TODO replace minter with dealer when states are properly exchanged
-        val future = minterNode.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
@@ -103,8 +102,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
-        // TODO replace minter with dealer when states are properly exchanged
-        val future = minterNode.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
@@ -130,8 +128,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
-        // TODO replace minter with dealer when states are properly exchanged
-        val future = minterNode.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
@@ -153,8 +150,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
-        // TODO replace minter with dealer when states are properly exchanged
-        val future = minterNode.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
@@ -170,8 +166,7 @@ class BlindBetFlowTest {
             minter,
             4
         )
-        // TODO replace minter with dealer when states are properly exchanged
-        val future = minterNode.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
@@ -179,6 +174,6 @@ class BlindBetFlowTest {
         assertEquals(1, outputs.size)
         val gameState = outputs.single()
         assertTrue(gameState.cards.all { it == null })
-        assertEquals(setOf(minter, player1, player2, player3, player4), gameState.participants.toSet())
+        assertEquals(setOf(dealer, player1, player2, player3, player4), gameState.participants.toSet())
     }
 }
