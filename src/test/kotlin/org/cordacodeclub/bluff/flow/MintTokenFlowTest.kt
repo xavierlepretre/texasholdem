@@ -56,7 +56,7 @@ class MintTokenFlowTest {
 
     @Test
     fun `SignedTransaction is signed only by minter`() {
-        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100)
+        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100, 1)
         val future = minterNode.startFlow(flow)
         network.runNetwork()
 
@@ -66,7 +66,7 @@ class MintTokenFlowTest {
 
     @Test
     fun `SignedTransaction is received by both players`() {
-        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100)
+        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100, 2)
         val future = minterNode.startFlow(flow)
         network.runNetwork()
 
@@ -78,7 +78,7 @@ class MintTokenFlowTest {
 
     @Test
     fun `SignedTransaction has 100 outputs of 1 per player`() {
-        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100)
+        val flow = MintTokenFlow.Minter(listOf(player1, player2), 100, 3)
         val future = minterNode.startFlow(flow)
         network.runNetwork()
 
@@ -90,7 +90,7 @@ class MintTokenFlowTest {
             .forEach { owner, states ->
                 assertEquals(100, states.size)
                 states.forEach {
-                    assertEquals(1, it.amount)
+                    assertEquals(3, it.amount)
                     assertEquals(minter, it.minter)
                     assertFalse(it.isPot)
                 }

@@ -65,7 +65,7 @@ class BlindBetFlowTest {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
             it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
         }
-        val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3, player4), 100)
+        val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3, player4), 100, 1)
         val future = minterNode.startFlow(mintFlow)
         network.runNetwork()
         mintTx = future.getOrThrow()

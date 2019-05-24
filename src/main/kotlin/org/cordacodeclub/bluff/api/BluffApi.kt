@@ -53,23 +53,27 @@ class BluffApi(private val rpcOps: CordaRPCOps) {
     }
 
     /**
-     * Flow that is called by dealer to create tokens for players
+     * Flow that is called by minter to create tokens for players
      */
     @PUT
     @Path("create-tokens")
     fun createTokens(
             @QueryParam("players") players: List<String>,
-            @QueryParam("amountPerPlayer") amountPerPlayer: Long
+            @QueryParam("countPerPlayer") amountPerPlayer: Long,
+            @QueryParam("amountPerState") amountPerState: Long
     ): Response {
         if (players == null) {
             return Response.status(BAD_REQUEST).entity("Query parameter 'players' missing or has wrong format.\n").build()
         }
         if (amountPerPlayer == null) {
-            return Response.status(BAD_REQUEST).entity("Query parameter 'amountPerPlayer' missing or has wrong format.\n").build()
+            return Response.status(BAD_REQUEST).entity("Query parameter 'countPerPlayer' missing or has wrong format.\n").build()
+        }
+        if (amountPerState == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'amountPerState' missing or has wrong format.\n").build()
         }
         val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
         return try {
-            val signedTransaction = rpcOps.startFlow(MintTokenFlow::Minter, playerParties, amountPerPlayer)
+            val signedTransaction = rpcOps.startFlow(MintTokenFlow::Minter, playerParties, amountPerPlayer, amountPerState)
                     .returnValue.getOrThrow()
             Response.ok(signedTransaction).build()
         } catch (ex: Throwable) {
