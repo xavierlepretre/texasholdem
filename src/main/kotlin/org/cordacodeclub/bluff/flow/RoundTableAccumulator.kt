@@ -36,8 +36,7 @@ data class CallOrRaiseRequest(
     val yourWager: Long,
     val yourCards: List<AssignedCard>,
     val communityCards: List<AssignedCard>
-) :
-    RoundTableRequest {
+) : RoundTableRequest {
     init {
         requireThat {
             "There must be at least $CARDS_PER_PLAYER cards" using (yourCards.size >= CARDS_PER_PLAYER)
