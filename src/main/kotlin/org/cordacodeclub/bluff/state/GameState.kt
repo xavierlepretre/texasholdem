@@ -36,10 +36,12 @@ enum class BettingRound {
     FLOP,      //Three community cards places in the middle face up
     TURN,      //Fourth community card revealed
     RIVER;    //Fifth community card reveled - final round
-    private val array = values()
     //To return next element
-    fun next() : BettingRound {
-        return array[(this.ordinal + 1) % array.size]
+    fun next(): BettingRound {
+        return (ordinal + 1).let { next ->
+            require(next < values().size) { "The last one has no next" }
+            values()[next]
+        }
     }
 }
 
