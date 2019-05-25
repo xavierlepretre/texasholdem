@@ -17,11 +17,10 @@ import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
 import org.cordacodeclub.bluff.dealer.containsAll
-import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.GameState
-import org.cordacodeclub.bluff.state.TokenState
+import org.cordacodeclub.bluff.state.*
 import org.cordacodeclub.bluff.user.PlayerDatabaseService
 import org.cordacodeclub.bluff.user.UserResponder
+import org.cordacodeclub.bluff.contract.GameContract.Commands.*
 
 //Initial flow
 object CreateGameFlow {
@@ -33,8 +32,9 @@ object CreateGameFlow {
      * And it has to be signed by the players and dealer.
      * @param players list of parties joining the game
      * @param blindBetId the hash of the transaction that ran the blind bets
+     * @param previousRoundId the hash of the transaction from the previous betting round
      */
-    class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash) :
+    class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash, private val previousRoundId: SecureHash?) :
         FlowLogic<SignedTransaction>() {
 
         /**
@@ -70,32 +70,42 @@ object CreateGameFlow {
         @Suspendable
         override fun call(): SignedTransaction {
 
-            val blindBetTx = serviceHub.validatedTransactions.getTransaction(blindBetId)!!
-            val potTokens = blindBetTx.tx.outRefsOfType<TokenState>()
+            //On initial call we use transaction from blindBet. Later rounds require previous transaction from this flow.
+            val latestRoundTx = if (previousRoundId != null) serviceHub.validatedTransactions.getTransaction(previousRoundId)!!
+            else serviceHub.validatedTransactions.getTransaction(blindBetId)!!
+            val latestGameState = latestRoundTx.tx.outRefsOfType<GameState>().single().state.data
+
+            val potTokens = latestRoundTx.tx.outRefsOfType<TokenState>()
                 .map { it.state.data.owner to it }
                 .toMultiMap()
             val minter = potTokens.entries.flatMap { entry ->
                 entry.value.map { it.state.data.minter }
             }.toSet().single()
-            val gameState = blindBetTx.tx.outRefsOfType<GameState>().single().state.data
+
             val cardService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
-            val deckInfo = cardService.getCardDeck(MerkleTree.getMerkleTree(gameState.hashedCards).hash)!!
+            val deckInfo = cardService.getCardDeck(MerkleTree.getMerkleTree(latestGameState.hashedCards).hash)!!
+            val communityCardsAmount = when (latestGameState.bettingRound) {
+                BettingRound.FLOP -> 3
+                BettingRound.TURN -> 4
+                BettingRound.RIVER -> 5
+                else -> 0
+            }
 
             requireThat {
-                val blindBetParticipants = gameState.participants.toSet()
+                val blindBetParticipants = latestGameState.participants.toSet()
                 "There needs at least 2 players" using (players.size >= 2)
-                "We should have the same players as in blind bet" using (blindBetParticipants == players.toSet())
+                "We should have the same players as in the previous bet" using (blindBetParticipants == players.toSet())
             }
 
             val dealer = serviceHub.myInfo.legalIdentities.first()
             val allFlows = players.map { initiateFlow(it) }
 
-            // 3rd player starts
+            // PLayer after smallBet and bigBet starts
             // Send only their cards to each player, ask for bets
             val accumulated = RoundTableAccumulator(
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
-                currentPlayerIndex = 2,
+                currentPlayerIndex = latestGameState.lastBettor + 1,
                 committedPotSums = potTokens.mapValues { entry ->
                     entry.value.map { it.state.data.amount }.sum()
                 },
@@ -109,8 +119,9 @@ object CreateGameFlow {
                     lastRaise = accumulator.currentLevel,
                     yourWager = accumulator.currentPlayerSum,
                     yourCards = deckInfo.cards.drop(accumulator.currentPlayerIndex * CARDS_PER_PLAYER).take(
-                        CARDS_PER_PLAYER
-                    )
+                            CARDS_PER_PLAYER
+                    ),
+                    communityCards = deckInfo.cards.drop(players.size * CARDS_PER_PLAYER).take(communityCardsAmount)
                 ).let { request ->
                     allFlows[accumulator.currentPlayerIndex].sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
                 }.let { response ->
@@ -131,16 +142,22 @@ object CreateGameFlow {
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             // TODO Our game theoretic risk is that a player that folded will not bother signing the tx
-            val txBuilder = TransactionBuilder(notary = blindBetTx.notary)
+
+            var command: GameContract.Commands
+            var updatedGameState: GameState
+            if (latestGameState.bettingRound == BettingRound.BLIND_BET) {
+                command = Create()
+                updatedGameState = latestGameState.copy(lastBettor = latestGameState.lastBettor + 1)
+            } else {
+                command = CarryOn()
+                updatedGameState = latestGameState.copy(lastBettor = latestGameState.lastBettor + 1, bettingRound = latestGameState.bettingRound.next())
+            }
+
+            val txBuilder = TransactionBuilder(notary = latestRoundTx.notary)
                 .also {
                     it.addElementsOf(potTokens, accumulated)
-                    it.addCommand(
-                        Command(
-                            GameContract.Commands.Create(),
-                            listOf(serviceHub.myInfo.legalIdentities.first().owningKey)
-                        )
-                    )
-                    it.addOutputState(gameState, GameContract.ID)
+                    it.addCommand(Command(command, listOf(dealer.owningKey)))
+                    it.addOutputState(updatedGameState, GameContract.ID)
                     Unit
                 }
 

@@ -54,7 +54,7 @@ fun getPlayerHands(gameHandState: PlayerHandState, gameCards: List<AssignedCard?
     val cardList: kotlin.collections.MutableList<Card> = java.util.ArrayList()
     val playerCards = gameHandState.cardIndexes.map {
         // It will fail if you pass an index that points to a null
-        val card = gameCards[it]!!.card!!
+        val card = gameCards[it]!!.card
         cardList.add(card)
         card
     }.toCollection(cardList)

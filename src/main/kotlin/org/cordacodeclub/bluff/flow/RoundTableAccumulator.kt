@@ -34,7 +34,8 @@ data class CallOrRaiseRequest(
     val minter: Party,
     val lastRaise: Long,
     val yourWager: Long,
-    val yourCards: List<AssignedCard>
+    val yourCards: List<AssignedCard>,
+    val communityCards: List<AssignedCard>
 ) :
     RoundTableRequest {
     init {

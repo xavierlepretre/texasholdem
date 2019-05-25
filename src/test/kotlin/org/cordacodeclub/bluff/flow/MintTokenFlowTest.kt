@@ -29,11 +29,11 @@ class MintTokenFlowTest {
     @Before
     fun setup() {
         network = MockNetwork(
-            listOf(
-                "org.cordacodeclub.bluff.contract",
-                "org.cordacodeclub.bluff.flow",
-                "org.cordacodeclub.bluff.state"
-            )
+                listOf(
+                        "org.cordacodeclub.bluff.contract",
+                        "org.cordacodeclub.bluff.flow",
+                        "org.cordacodeclub.bluff.state"
+                )
         )
         minterNode = network.createPartyNode()
         player1Node = network.createPartyNode()
@@ -87,13 +87,13 @@ class MintTokenFlowTest {
         val outputs = signedTx.tx.outputs
         assertTrue(outputs.all { it.data is TokenState })
         outputs.map { it.data as TokenState }.map { it.owner to it }.toMultiMap()
-            .forEach { owner, states ->
-                assertEquals(100, states.size)
-                states.forEach {
-                    assertEquals(3, it.amount)
-                    assertEquals(minter, it.minter)
-                    assertFalse(it.isPot)
+                .forEach { owner, states ->
+                    assertEquals(100, states.size)
+                    states.forEach {
+                        assertEquals(3, it.amount)
+                        assertEquals(minter, it.minter)
+                        assertFalse(it.isPot)
+                    }
                 }
-            }
     }
 }
