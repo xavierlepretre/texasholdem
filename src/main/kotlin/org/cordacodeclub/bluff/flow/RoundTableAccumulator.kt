@@ -50,32 +50,27 @@ data class CallOrRaiseRequest(
 // Call: Same amount as previous player -> new states to reach above current level
 // Raise bigger -> return no new state or new states to reach current level
 // Fold: give away cards -> return no new state
-class CallOrRaiseResponse {
-    val isFold: Boolean
-    val moreBets: List<StateAndRef<TokenState>>
+class CallOrRaiseResponse(
+    val isFold: Boolean,
+    val moreBets: List<StateAndRef<TokenState>>,
     val transactions: Set<SignedTransaction>
-
-    // Fold constructor
-    constructor() {
-        isFold = true
-        moreBets = listOf()
-        transactions = setOf()
-    }
-
-    // Call or raise constructor
-    constructor(states: List<StateAndRef<TokenState>>, txs: Set<SignedTransaction>) {
+) {
+    init {
         requireThat {
             "All amounts must be strictly positive" using
-                    (states.fold(true) { isPos, state ->
+                    (moreBets.fold(true) { isPos, state ->
                         isPos && state.state.data.amount > 0
                     })
             "All transactions must be relevant to the states and vice versa" using
-                    (states.map { it.ref.txhash }.toSet() == txs.map { it.id }.toSet())
+                    (moreBets.map { it.ref.txhash }.toSet() == transactions.map { it.id }.toSet())
         }
-        isFold = false
-        moreBets = states
-        transactions = txs
     }
+
+    // Fold constructor
+    constructor() : this(true, listOf(), setOf())
+
+    // Call or raise constructor
+    constructor(states: List<StateAndRef<TokenState>>, txs: Set<SignedTransaction>) : this(false, states, txs)
 
     constructor(states: List<StateAndRef<TokenState>>, serviceHub: ServiceHub) :
             this(states, states.map { serviceHub.validatedTransactions.getTransaction(it.ref.txhash)!! }.toSet())
