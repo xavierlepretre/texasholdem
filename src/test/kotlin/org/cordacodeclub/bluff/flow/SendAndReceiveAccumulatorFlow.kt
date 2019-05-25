@@ -8,6 +8,7 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.state.TokenState
 
 object SendAndReceiveAccumulatorFlow {
 
@@ -15,15 +16,21 @@ object SendAndReceiveAccumulatorFlow {
     class Initiator(
         val deckInfo: CardDeckInfo,
         val players: List<Party>,
-        private var accumulator: RoundTableAccumulator
+        private var accumulator: RoundTableAccumulator,
+        val responderActions: Map<Party, List<Pair<Action, Long>>> = mapOf()
     ) : FlowLogic<RoundTableAccumulator>() {
 
         @Suspendable
         override fun call(): RoundTableAccumulator {
+            val playerFlows = players.map { player ->
+                initiateFlow(player).also {
+                    it.send(responderActions[player] ?: listOf(Action.Fold to 0L))
+                }
+            }
             return subFlow(
                 RoundTableAccumulatorFlow(
                     deckInfo = deckInfo,
-                    playerFlows = players.map { initiateFlow(it) },
+                    playerFlows = playerFlows,
                     accumulator = accumulator
                 )
             )
@@ -35,8 +42,31 @@ object SendAndReceiveAccumulatorFlow {
 
         @Suspendable
         override fun call() {
-            val request = otherPartySession.receive<CallOrRaiseRequest>().unwrap { it }
-            otherPartySession.send(CallOrRaiseResponse())
+            val desiredActions = otherPartySession.receive<List<Pair<Action, Long>>>().unwrap { it }
+            desiredActions.forEach { desiredAction ->
+                val request = otherPartySession.receive<CallOrRaiseRequest>().unwrap { it }
+                val desiredAmount = desiredAction.second + request.lastRaise - request.yourWager
+                val response = when (desiredAction.first) {
+                    Action.Fold -> CallOrRaiseResponse()
+                    Action.Call, Action.Raise -> desiredAmount.let { amount ->
+                        if (amount == 0L) CallOrRaiseResponse(listOf(), serviceHub)
+                        else CallOrRaiseResponse(
+                            subFlow(
+                                TokenStateCollectorFlow(
+                                    TokenState(
+                                        minter = request.minter,
+                                        owner = serviceHub.myInfo.legalIdentities.first(),
+                                        amount = amount,
+                                        isPot = false
+                                    )
+                                )
+                            ),
+                            serviceHub
+                        )
+                    }
+                }
+                otherPartySession.send(response)
+            }
         }
     }
 }

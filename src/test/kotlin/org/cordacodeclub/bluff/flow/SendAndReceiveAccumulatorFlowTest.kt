@@ -81,14 +81,14 @@ class SendAndReceiveAccumulatorFlowTest {
     }
 
     @Test
-    fun `Can receive response`() {
+    fun `Can receive fold responses`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
         val flow = SendAndReceiveAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = RoundTableAccumulator(
-                minter = player1,
+                minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,
                 committedPotSums = potTokens.mapValues { it.value.map { it.state.data.amount }.sum() },
@@ -104,6 +104,7 @@ class SendAndReceiveAccumulatorFlowTest {
         val accumulated = future.getOrThrow()
         assertTrue(accumulated.isRoundDone)
         assertEquals(mapOf(), accumulated.newBets)
+        assertEquals(0, accumulated.newBets.values.map { it.size }.sum())
         assertEquals(1, accumulated.currentPlayerIndex)
         assertEquals(1, accumulated.lastRaiseIndex)
         assertEquals(
@@ -111,6 +112,88 @@ class SendAndReceiveAccumulatorFlowTest {
                 ActivePlayer(player1, true),
                 ActivePlayer(player2, false),
                 ActivePlayer(player3, true)
+            ), accumulated.players
+        )
+    }
+
+    @Test
+    fun `Can receive call responses`() {
+        val players = listOf(player1, player2, player3)
+        val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
+        val flow = SendAndReceiveAccumulatorFlow.Initiator(
+            deckInfo = deckInfo,
+            players = players,
+            accumulator = RoundTableAccumulator(
+                minter = minter,
+                players = players.map { ActivePlayer(it, false) },
+                currentPlayerIndex = 2,
+                committedPotSums = potTokens.mapValues { it.value.map { it.state.data.amount }.sum() },
+                newBets = mapOf(),
+                newTransactions = setOf(),
+                lastRaiseIndex = 1,
+                playerCountSinceLastRaise = 0
+            ),
+            responderActions = mapOf(
+                player1 to listOf(Action.Call to 0L),
+                player2 to listOf(Action.Call to 0L),
+                player3 to listOf(Action.Call to 0L)
+            )
+        )
+        val future = player1Node.startFlow(flow)
+        network.runNetwork()
+
+        val accumulated = future.getOrThrow()
+        assertTrue(accumulated.isRoundDone)
+        assertEquals(3, accumulated.newBets.size)
+        assertEquals(8 + 4, accumulated.newBets.values.map { it.size }.sum())
+        assertEquals(2, accumulated.currentPlayerIndex)
+        assertEquals(1, accumulated.lastRaiseIndex)
+        assertEquals(
+            listOf(
+                ActivePlayer(player1, false),
+                ActivePlayer(player2, false),
+                ActivePlayer(player3, false)
+            ), accumulated.players
+        )
+    }
+
+    @Test
+    fun `Can receive responses from long round`() {
+        val players = listOf(player1, player2, player3)
+        val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
+        val flow = SendAndReceiveAccumulatorFlow.Initiator(
+            deckInfo = deckInfo,
+            players = players,
+            accumulator = RoundTableAccumulator(
+                minter = minter,
+                players = players.map { ActivePlayer(it, false) },
+                currentPlayerIndex = 2,
+                committedPotSums = potTokens.mapValues { it.value.map { it.state.data.amount }.sum() },
+                newBets = mapOf(),
+                newTransactions = setOf(),
+                lastRaiseIndex = 1,
+                playerCountSinceLastRaise = 0
+            ),
+            responderActions = mapOf(
+                player1 to listOf(Action.Raise to 10L, Action.Call to 0L),
+                player2 to listOf(Action.Call to 0L),
+                player3 to listOf(Action.Call to 0L, Action.Call to 0L)
+            )
+        )
+        val future = player1Node.startFlow(flow)
+        network.runNetwork()
+
+        val accumulated = future.getOrThrow()
+        assertTrue(accumulated.isRoundDone)
+        assertEquals(3, accumulated.newBets.size)
+        assertEquals(8 + 14 + 10 + 10, accumulated.newBets.values.map { it.size }.sum())
+        assertEquals(1, accumulated.currentPlayerIndex)
+        assertEquals(0, accumulated.lastRaiseIndex)
+        assertEquals(
+            listOf(
+                ActivePlayer(player1, false),
+                ActivePlayer(player2, false),
+                ActivePlayer(player3, false)
             ), accumulated.players
         )
     }

@@ -62,7 +62,7 @@ class SendReceiveRequestFlowTest {
                     AssignedCard(Card.valueOf("2h"), "Hello1".toByteArray(), player2.name),
                     AssignedCard(Card.valueOf("2s"), "Hello2".toByteArray(), player2.name)
                 ),
-                    communityCards = listOf()
+                communityCards = listOf()
             )
         )
         val future = player1Node.startFlow(flow)

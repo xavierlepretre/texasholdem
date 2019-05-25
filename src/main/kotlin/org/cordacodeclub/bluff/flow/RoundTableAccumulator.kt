@@ -16,6 +16,7 @@ import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.TokenState
 
+@CordaSerializable
 enum class Action {
     Call,
     Raise,
