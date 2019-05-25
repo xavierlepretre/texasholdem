@@ -1,5 +1,6 @@
 package org.cordacodeclub.bluff.flow
 
+import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
@@ -48,6 +49,7 @@ class TransferOwnTokenFlow(
         )
     }
 
+    @Suspendable
     override fun call(): SignedTransaction {
 
         requireThat {

@@ -1,5 +1,6 @@
 package org.cordacodeclub.bluff.flow
 
+import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.FinalityFlow
@@ -39,6 +40,7 @@ class TokenStateCollectorFlow(
         )
     }
 
+    @Suspendable
     override fun call(): List<StateAndRef<TokenState>> {
         progressTracker.currentStep = PREPARING_CRITERIA
         val forMinter = TokenSchemaV1.PersistentToken::minter.equal(desired.minter.toString())

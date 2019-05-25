@@ -31,17 +31,17 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
         val params = mapOf(
             1 to actionRequest.player.toString(),
             2 to toString(actionRequest.cards.asSequence()),
-            9 to actionRequest.youBet,
-            10 to actionRequest.lastRaise,
-            11 to "",
-            12 to 0
+            3 to actionRequest.youBet,
+            4 to actionRequest.lastRaise,
+            5 to "",
+            6 to 0
         )
 
         val rowCount = executeUpdate(query, params)
         log.info("ActionRequest $actionRequest added to $tableName table.")
         val lastIdQuery = "select last_insert_id();"
         val lastId = executeQuery(lastIdQuery, mapOf()) {
-            it.getLong("last_insert_id")
+            it.getLong(1)
         }.single()
         return rowCount to actionRequest.copy(id = lastId)
     }
@@ -76,7 +76,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
-                Action.valueOf(it.getString("action")),
+                it.getString("action").let { if (it == "") null else Action.valueOf(it) },
                 it.getLong("addAmount")
             )
         }
