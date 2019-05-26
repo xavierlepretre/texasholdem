@@ -7,18 +7,18 @@ import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
-import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.round.RoundTableDone
 
 class RoundTableAccumulatorFlow(
     val deckInfo: CardDeckInfo,
     val playerFlows: List<FlowSession>,
-    val accumulator: RoundTableAccumulator,
+    val accumulator: DealerRoundAccumulator,
     val depth: Int = 0
-) : FlowLogic<RoundTableAccumulator>() {
+) : FlowLogic<DealerRoundAccumulator>() {
 
     @Suspendable
-    override fun call(): RoundTableAccumulator {
+    override fun call(): DealerRoundAccumulator {
         if (accumulator.isRoundDone) {
             // Notify all players that the round is done. We need to do this because the responder flow has to move on
             with(RoundTableDone(accumulator.newBets.flatMap { it.value })) {

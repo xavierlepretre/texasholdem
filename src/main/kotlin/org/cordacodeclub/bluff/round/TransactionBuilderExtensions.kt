@@ -11,7 +11,7 @@ import org.cordacodeclub.bluff.state.TokenState
 
 fun TransactionBuilder.addElementsOf(
     inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
-    accumulated: RoundTableAccumulator
+    accumulated: DealerRoundAccumulator
 ) {
     addCommand(
         Command(

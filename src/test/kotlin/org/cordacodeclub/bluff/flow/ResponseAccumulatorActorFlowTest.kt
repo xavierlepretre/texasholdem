@@ -12,7 +12,7 @@ import net.corda.testing.node.StartedMockNode
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerAction
-import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
@@ -90,7 +90,7 @@ class ResponseAccumulatorActorFlowTest {
         val flow = ResponseAccumulatorActorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
-            accumulator = RoundTableAccumulator(
+            accumulator = DealerRoundAccumulator(
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,
@@ -122,7 +122,7 @@ class ResponseAccumulatorActorFlowTest {
         val flow = ResponseAccumulatorActorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
-            accumulator = RoundTableAccumulator(
+            accumulator = DealerRoundAccumulator(
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,

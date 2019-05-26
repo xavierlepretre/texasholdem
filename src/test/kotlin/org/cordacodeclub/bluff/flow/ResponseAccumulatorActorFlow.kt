@@ -10,7 +10,7 @@ import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.PlayerSideResponseAccumulator
-import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.player.ActionRequest
 import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerResponder
@@ -43,7 +43,7 @@ object ResponseAccumulatorActorFlow {
     class Initiator(
         val deckInfo: CardDeckInfo,
         val players: List<Party>,
-        val accumulator: RoundTableAccumulator,
+        val accumulator: DealerRoundAccumulator,
         val responderActions: Map<Party, List<DesiredAction>> = mapOf()
     ) : FlowLogic<Map<Party, PlayerSideResponseAccumulator>>() {
 

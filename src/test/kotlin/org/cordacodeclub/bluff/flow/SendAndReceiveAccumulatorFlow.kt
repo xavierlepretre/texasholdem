@@ -12,7 +12,7 @@ import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
-import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.round.RoundTableDone
 import org.cordacodeclub.bluff.state.TokenState
 
@@ -22,12 +22,12 @@ object SendAndReceiveAccumulatorFlow {
     class Initiator(
         val deckInfo: CardDeckInfo,
         val players: List<Party>,
-        val accumulator: RoundTableAccumulator,
+        val accumulator: DealerRoundAccumulator,
         val responderActions: Map<Party, List<DesiredAction>> = mapOf()
-    ) : FlowLogic<RoundTableAccumulator>() {
+    ) : FlowLogic<DealerRoundAccumulator>() {
 
         @Suspendable
-        override fun call(): RoundTableAccumulator {
+        override fun call(): DealerRoundAccumulator {
             val playerFlows = players.map { player ->
                 initiateFlow(player).also {
                     it.send(responderActions[player] ?: listOf(

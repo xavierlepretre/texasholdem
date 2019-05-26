@@ -9,7 +9,7 @@ import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 
 // This object is passed around after each player has acted
-class RoundTableAccumulator(
+class DealerRoundAccumulator(
     val minter: Party,
     // Keeps track of which player has folded
     val players: List<ActivePlayer>,
@@ -64,7 +64,7 @@ class RoundTableAccumulator(
     val activePlayerCount = players.filter { !it.folded }.size
     val isRoundDone = activePlayerCount == 1 || activePlayerCount == playerCountSinceLastRaise
 
-    fun stepForwardWhenCurrentPlayerSent(response: CallOrRaiseResponse): RoundTableAccumulator {
+    fun stepForwardWhenCurrentPlayerSent(response: CallOrRaiseResponse): DealerRoundAccumulator {
         requireThat {
             "We cannot move forward if the round is done" using (!isRoundDone)
         }
@@ -104,7 +104,7 @@ class RoundTableAccumulator(
                 isFolded -> playerCountSinceLastRaise
                 else -> playerCountSinceLastRaise + 1
             }
-        return RoundTableAccumulator(
+        return DealerRoundAccumulator(
             minter = minter,
             players = updatedPlayers,
             currentPlayerIndex = nextActivePlayerIndex,

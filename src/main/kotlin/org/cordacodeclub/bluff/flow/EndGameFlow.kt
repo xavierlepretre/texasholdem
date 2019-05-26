@@ -8,7 +8,7 @@
 //import org.cordacodeclub.bluff.state.PlayerHandState
 //
 //class EndGameFlow(
-//        val roundTableAccumulator: RoundTableAccumulator,
+//        val roundTableAccumulator: DealerRoundAccumulator,
 //        val gameState: GameState,
 //        override val progressTracker: ProgressTracker = TokenStateCollectorFlow.tracker()
 //) : FlowLogic<List<StateAndRef<PlayerHandState>>>() {

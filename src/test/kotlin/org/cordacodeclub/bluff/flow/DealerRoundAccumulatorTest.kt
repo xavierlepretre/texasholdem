@@ -11,7 +11,7 @@ import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.testing.core.TestIdentity
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
-import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.Assert.assertEquals
@@ -19,7 +19,7 @@ import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class RoundTableAccumulatorTest {
+class DealerRoundAccumulatorTest {
 
     private val minter = TestIdentity(CordaX500Name("Minter", "London", "GB"))
     private val player0 = TestIdentity(CordaX500Name("Owner0", "Madrid", "ES"))
@@ -46,7 +46,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -86,7 +86,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -127,7 +127,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -168,7 +168,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -217,7 +217,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -269,7 +269,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -324,7 +324,7 @@ class RoundTableAccumulatorTest {
             ActivePlayer(player1.party, false),
             ActivePlayer(player2.party, false)
         )
-        val resultRound = RoundTableAccumulator(
+        val resultRound = DealerRoundAccumulator(
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
