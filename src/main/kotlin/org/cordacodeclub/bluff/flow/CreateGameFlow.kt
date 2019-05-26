@@ -275,6 +275,8 @@ object CreateGameFlow {
             val looper: ResponseAccumulator.() -> ResponseAccumulator = {
                 otherPartySession.receive<RoundTableRequest>().unwrap { it }
                     .let { request ->
+                        // confirm we are not lied to with previously known cards
+                        //save incomplete deck
                         when (request) {
                             is RoundTableDone -> this.stepForwardWhenIsDone(request = request)
                             is CallOrRaiseRequest -> responseBuilder(request)

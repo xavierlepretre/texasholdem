@@ -81,3 +81,5 @@ fun List<MerkleTree.Leaf>.containsAll(assignedCards: List<AssignedCard>) =
 fun List<MerkleTree.Leaf>.contains(assignedCard: AssignedCard) =
     map { it.hash }.contains(assignedCard.hash)
 
+//Add functions to check player cards with their positions in merkle root
+
