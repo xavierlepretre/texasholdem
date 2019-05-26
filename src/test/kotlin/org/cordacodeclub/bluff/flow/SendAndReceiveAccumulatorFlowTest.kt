@@ -61,7 +61,7 @@ class SendAndReceiveAccumulatorFlowTest {
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         listOf(minterNode, dealerNode, player1Node, player2Node, player3Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
-            it.registerInitiatedFlow(SendAndReceiveAccumulatorFlow.FoldResponder::class.java)
+            it.registerInitiatedFlow(SendAndReceiveAccumulatorFlow.RemoteControlledResponder::class.java)
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3), 100, 1)
         val mintFuture = minterNode.startFlow(mintFlow)
@@ -134,9 +134,9 @@ class SendAndReceiveAccumulatorFlowTest {
                 playerCountSinceLastRaise = 0
             ),
             responderActions = mapOf(
-                player1 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
-                player2 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
-                player3 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L))
+                player1 to listOf(DesiredAction(Action.Call, 0L)),
+                player2 to listOf(DesiredAction(Action.Call, 0L)),
+                player3 to listOf(DesiredAction(Action.Call, 0L))
             )
         )
         val future = player1Node.startFlow(flow)
@@ -176,13 +176,13 @@ class SendAndReceiveAccumulatorFlowTest {
             ),
             responderActions = mapOf(
                 player1 to listOf(
-                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Raise, 10L),
-                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)
+                    DesiredAction(Action.Raise, 10L),
+                    DesiredAction(Action.Call, 0L)
                 ),
-                player2 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
+                player2 to listOf(DesiredAction(Action.Call, 0L)),
                 player3 to listOf(
-                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L),
-                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)
+                    DesiredAction(Action.Call, 0L),
+                    DesiredAction(Action.Call, 0L)
                 )
             )
         )

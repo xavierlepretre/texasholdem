@@ -77,14 +77,6 @@ class CallOrRaiseResponse(
             this(states, states.map { serviceHub.validatedTransactions.getTransaction(it.ref.txhash)!! }.toSet())
 }
 
-fun RoundTableAccumulator.doUntilIsRoundDone(stepper: (RoundTableAccumulator) -> RoundTableAccumulator): RoundTableAccumulator {
-    var accumulator = this
-    while (!accumulator.isRoundDone) {
-        accumulator = stepper(accumulator)
-    }
-    return accumulator
-}
-
 fun TransactionBuilder.addElementsOf(
     inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
     accumulated: RoundTableAccumulator
@@ -239,15 +231,6 @@ class RoundTableAccumulator(
             playerCountSinceLastRaise = updatedPlayerCountSinceLastRaise
         )
     }
-}
-
-fun ResponseAccumulator.doUntilIsRoundDone(stepper: ResponseAccumulator.() -> ResponseAccumulator): ResponseAccumulator {
-    var accumulator = this
-    while (!accumulator.isDone) {
-        accumulator = accumulator.stepper()
-    }
-    return accumulator
-
 }
 
 data class ResponseAccumulator(

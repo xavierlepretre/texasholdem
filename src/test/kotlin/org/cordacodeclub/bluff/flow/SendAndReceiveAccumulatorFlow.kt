@@ -6,15 +6,11 @@ import net.corda.core.flows.FlowSession
 import net.corda.core.flows.InitiatedBy
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
-import net.corda.core.serialization.CordaSerializable
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.state.TokenState
 
 object SendAndReceiveAccumulatorFlow {
-
-    @CordaSerializable
-    data class DesiredAction(val action: Action, val raiseBy: Long)
 
     @InitiatingFlow
     class Initiator(
@@ -42,7 +38,7 @@ object SendAndReceiveAccumulatorFlow {
     }
 
     @InitiatedBy(Initiator::class)
-    class FoldResponder(val otherPartySession: FlowSession) : FlowLogic<Unit>() {
+    class RemoteControlledResponder(val otherPartySession: FlowSession) : FlowLogic<Unit>() {
 
         @Suspendable
         override fun call() {
