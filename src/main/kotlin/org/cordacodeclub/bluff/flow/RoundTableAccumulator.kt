@@ -126,7 +126,8 @@ fun TransactionBuilder.addElementsOf(
                 TokenState(
                     minter = minter, owner = entry.key,
                     amount = entry.value.sum(), isPot = true
-                ), GameContract.ID
+                ),
+                GameContract.ID
             )
         }
 }

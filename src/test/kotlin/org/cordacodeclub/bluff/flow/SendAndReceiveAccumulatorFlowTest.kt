@@ -134,9 +134,9 @@ class SendAndReceiveAccumulatorFlowTest {
                 playerCountSinceLastRaise = 0
             ),
             responderActions = mapOf(
-                player1 to listOf(Action.Call to 0L),
-                player2 to listOf(Action.Call to 0L),
-                player3 to listOf(Action.Call to 0L)
+                player1 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
+                player2 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
+                player3 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L))
             )
         )
         val future = player1Node.startFlow(flow)
@@ -175,9 +175,15 @@ class SendAndReceiveAccumulatorFlowTest {
                 playerCountSinceLastRaise = 0
             ),
             responderActions = mapOf(
-                player1 to listOf(Action.Raise to 10L, Action.Call to 0L),
-                player2 to listOf(Action.Call to 0L),
-                player3 to listOf(Action.Call to 0L, Action.Call to 0L)
+                player1 to listOf(
+                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Raise, 10L),
+                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)
+                ),
+                player2 to listOf(SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)),
+                player3 to listOf(
+                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L),
+                    SendAndReceiveAccumulatorFlow.DesiredAction(Action.Call, 0L)
+                )
             )
         )
         val future = player1Node.startFlow(flow)
