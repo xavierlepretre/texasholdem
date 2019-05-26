@@ -3,13 +3,17 @@ package org.cordacodeclub.bluff.user
 import net.corda.core.identity.Party
 import org.cordacodeclub.bluff.flow.CallOrRaiseRequest
 
-class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseService) {
+interface UserResponderI {
+    fun getAction(request: CallOrRaiseRequest): ActionRequest
+}
+
+class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseService) : UserResponderI {
 
     companion object {
         const val pollingInterval: Long = 5000 // 5 seconds
     }
 
-    fun getAction(request: CallOrRaiseRequest): ActionRequest {
+    override fun getAction(request: CallOrRaiseRequest): ActionRequest {
         // Save the request to db
         var actedRequest = playerDatabaseService.addActionRequest(
             ActionRequest(
