@@ -67,6 +67,7 @@ object SendAndReceiveAccumulatorFlow {
                 }
                 otherPartySession.send(response)
             }
+            otherPartySession.receive<RoundTableDone>()
         }
     }
 }

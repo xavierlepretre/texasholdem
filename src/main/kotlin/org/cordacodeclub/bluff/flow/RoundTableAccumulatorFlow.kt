@@ -16,6 +16,10 @@ class RoundTableAccumulatorFlow(
     @Suspendable
     override fun call(): RoundTableAccumulator {
         if (accumulator.isRoundDone) {
+            // Notify all players that the round is done. We need to do this because the responder flow has to move on
+            with(RoundTableDone(accumulator.newBets.flatMap { it.value })) {
+                playerFlows.forEach { it.send(this) }
+            }
             return accumulator
         }
         val request = CallOrRaiseRequest(

@@ -61,6 +61,7 @@ class SendAndReceiveAccumulatorFlowTest {
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         listOf(minterNode, dealerNode, player1Node, player2Node, player3Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
+            it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
             it.registerInitiatedFlow(SendAndReceiveAccumulatorFlow.RemoteControlledResponder::class.java)
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3), 100, 1)
@@ -98,7 +99,7 @@ class SendAndReceiveAccumulatorFlowTest {
                 playerCountSinceLastRaise = 0
             )
         )
-        val future = player1Node.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val accumulated = future.getOrThrow()
@@ -139,7 +140,7 @@ class SendAndReceiveAccumulatorFlowTest {
                 player3 to listOf(DesiredAction(Action.Call, 0L))
             )
         )
-        val future = player1Node.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val accumulated = future.getOrThrow()
@@ -186,7 +187,7 @@ class SendAndReceiveAccumulatorFlowTest {
                 )
             )
         )
-        val future = player1Node.startFlow(flow)
+        val future = dealerNode.startFlow(flow)
         network.runNetwork()
 
         val accumulated = future.getOrThrow()
