@@ -9,7 +9,7 @@ import org.cordacodeclub.bluff.dealer.CardDeckInfo
 class RoundTableAccumulatorFlow(
     val deckInfo: CardDeckInfo,
     val playerFlows: List<FlowSession>,
-    private var accumulator: RoundTableAccumulator,
+    val accumulator: RoundTableAccumulator,
     val depth: Int = 0
 ) : FlowLogic<RoundTableAccumulator>() {
 
@@ -22,9 +22,7 @@ class RoundTableAccumulatorFlow(
             minter = accumulator.minter,
             lastRaise = accumulator.currentLevel,
             yourWager = accumulator.currentPlayerSum,
-            yourCards = deckInfo.cards
-                .drop(accumulator.currentPlayerIndex * CardDeckInfo.CARDS_PER_PLAYER)
-                .take(CardDeckInfo.CARDS_PER_PLAYER),
+            yourCards = deckInfo.getPlayerCards(accumulator.currentPlayerIndex),
             communityCards = listOf()
         )
         val response = playerFlows[accumulator.currentPlayerIndex]

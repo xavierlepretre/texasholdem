@@ -20,7 +20,7 @@ object SendAndReceiveAccumulatorFlow {
     class Initiator(
         val deckInfo: CardDeckInfo,
         val players: List<Party>,
-        private var accumulator: RoundTableAccumulator,
+        val accumulator: RoundTableAccumulator,
         val responderActions: Map<Party, List<DesiredAction>> = mapOf()
     ) : FlowLogic<RoundTableAccumulator>() {
 

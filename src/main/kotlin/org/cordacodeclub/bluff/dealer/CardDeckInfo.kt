@@ -34,10 +34,10 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
 
         const val DECK_SIZE = 52
         const val CARDS_PER_PLAYER = 2
+        const val COMMUNITY_CARDS_COUNT = 5
 
         fun createShuffledWith(players: List<CordaX500Name>, dealer: CordaX500Name) =
             with(Random(System.nanoTime())) {
-                // Shuffle cards
                 // TODO better shuffling algorithm?
                 Card.newDeck().shuffled().map {
                     it to nextBytes(SALT_LENGTH)
@@ -56,6 +56,14 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
                 CardDeckInfo(it)
             }
     }
+
+    fun getPlayerCards(playerIndex: Int) = cards
+        .drop(playerIndex * CARDS_PER_PLAYER)
+        .take(CARDS_PER_PLAYER)
+
+    fun getCommunityCards(playerCount: Int) = cards
+        .drop(playerCount * CARDS_PER_PLAYER)
+        .take(COMMUNITY_CARDS_COUNT)
 }
 
 fun MerkleTree.getLeaves(partBuilt : List<MerkleTree.Leaf> = emptyList()) : List<MerkleTree.Leaf> = when(this) {
