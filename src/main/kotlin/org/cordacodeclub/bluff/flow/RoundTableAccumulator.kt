@@ -233,12 +233,15 @@ class RoundTableAccumulator(
     }
 }
 
+@CordaSerializable
 data class ResponseAccumulator(
     val myCards: List<AssignedCard>,
     val myNewBets: List<StateAndRef<TokenState>>,
     val allNewBets: List<StateAndRef<TokenState>>,
     val isDone: Boolean
 ) {
+
+    constructor() : this(listOf(), listOf(), listOf(), false)
 
     fun stepForwardWhenSending(request: RoundTableRequest, response: CallOrRaiseResponse): ResponseAccumulator {
         return when (response.isFold) {
