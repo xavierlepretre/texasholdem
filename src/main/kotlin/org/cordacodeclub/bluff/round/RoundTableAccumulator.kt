@@ -1,128 +1,12 @@
-package org.cordacodeclub.bluff.flow
+package org.cordacodeclub.bluff.round
 
-import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
-import net.corda.core.node.ServiceHub
-import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.transactions.TransactionBuilder
-import org.cordacodeclub.bluff.contract.GameContract
-import org.cordacodeclub.bluff.contract.TokenContract
-import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
 import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.bluff.state.TokenState
-
-@CordaSerializable
-enum class Action {
-    Call,
-    Raise,
-    Fold
-}
-
-@CordaSerializable
-// Marker interface that is sent to the responder flow when going round the table
-interface RoundTableRequest
-
-@CordaSerializable
-data class RoundTableDone(val allNewTokens: List<StateAndRef<TokenState>>) : RoundTableRequest
-
-@CordaSerializable
-data class CallOrRaiseRequest(
-    val minter: Party,
-    val lastRaise: Long,
-    val yourWager: Long,
-    val yourCards: List<AssignedCard>,
-    val communityCards: List<AssignedCard>
-) : RoundTableRequest {
-    init {
-        requireThat {
-            "There must be at least $CARDS_PER_PLAYER cards" using (yourCards.size >= CARDS_PER_PLAYER)
-            "Your wager cannot be higher than the last raise" using (yourWager <= lastRaise)
-            "Cards must be of the same assignee" using (yourCards.map { it.owner }.toSet().size == 1)
-        }
-    }
-}
-
-@CordaSerializable
-// Call: Same amount as previous player -> new states to reach above current level
-// Raise bigger -> return no new state or new states to reach current level
-// Fold: give away cards -> return no new state
-class CallOrRaiseResponse(
-    val isFold: Boolean,
-    val moreBets: List<StateAndRef<TokenState>>,
-    val transactions: Set<SignedTransaction>
-) {
-    init {
-        requireThat {
-            "All amounts must be strictly positive" using
-                    (moreBets.fold(true) { isPos, state ->
-                        isPos && state.state.data.amount > 0
-                    })
-            "All transactions must be relevant to the states and vice versa" using
-                    (moreBets.map { it.ref.txhash }.toSet() == transactions.map { it.id }.toSet())
-        }
-    }
-
-    // Fold constructor
-    constructor() : this(true, listOf(), setOf())
-
-    // Call or raise constructor
-    constructor(states: List<StateAndRef<TokenState>>, txs: Set<SignedTransaction>) : this(false, states, txs)
-
-    constructor(states: List<StateAndRef<TokenState>>, serviceHub: ServiceHub) :
-            this(states, states.map { serviceHub.validatedTransactions.getTransaction(it.ref.txhash)!! }.toSet())
-}
-
-fun TransactionBuilder.addElementsOf(
-    inputPotTokens: Map<Party, List<StateAndRef<TokenState>>>,
-    accumulated: RoundTableAccumulator
-) {
-    addCommand(
-        Command(
-            TokenContract.Commands.BetToPot(),
-            accumulated.newBets.keys.map { it.owningKey })
-    )
-
-    // Add existing pot tokens
-    inputPotTokens.forEach { entry ->
-        entry.value.forEach { addInputState(it) }
-    }
-
-    // Add new bet tokens as inputs
-    accumulated.newBets.forEach { entry ->
-        entry.value.forEach { addInputState(it) }
-    }
-
-    val minter = inputPotTokens.flatMap { entry ->
-        entry.value.map { it.state.data.minter }
-    }.toSet().single()
-
-    // Create and add new Pot token summaries in outputs
-    accumulated.newBets
-        .mapValues { entry ->
-            entry.value.map { it.state.data.amount }.sum()
-        }
-        .toList()
-        .plus(
-            inputPotTokens.mapValues { entry ->
-                entry.value.map { it.state.data.amount }.sum()
-            }.toList()
-        )
-        .toMultiMap()
-        .forEach { entry ->
-            addOutputState(
-                TokenState(
-                    minter = minter, owner = entry.key,
-                    amount = entry.value.sum(), isPot = true
-                ),
-                GameContract.ID
-            )
-        }
-}
 
 // This object is passed around after each player has acted
 class RoundTableAccumulator(
@@ -231,31 +115,4 @@ class RoundTableAccumulator(
             playerCountSinceLastRaise = updatedPlayerCountSinceLastRaise
         )
     }
-}
-
-@CordaSerializable
-data class ResponseAccumulator(
-    val myCards: List<AssignedCard>,
-    val myNewBets: List<StateAndRef<TokenState>>,
-    val allNewBets: List<StateAndRef<TokenState>>,
-    val isDone: Boolean
-) {
-
-    constructor() : this(listOf(), listOf(), listOf(), false)
-
-    fun stepForwardWhenSending(request: RoundTableRequest, response: CallOrRaiseResponse): ResponseAccumulator {
-        return when (response.isFold) {
-            true -> this
-            false -> this.copy(
-                myCards = when (request) {
-                    is CallOrRaiseRequest -> request.yourCards
-                    else -> myCards
-                },
-                myNewBets = myNewBets.plus(response.moreBets)
-            )
-        }
-    }
-
-    fun stepForwardWhenIsDone(request: RoundTableDone) =
-        this.copy(isDone = true, allNewBets = request.allNewTokens)
 }

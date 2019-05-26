@@ -4,27 +4,27 @@ import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.FlowSession
-import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.*
 import org.cordacodeclub.bluff.state.TokenState
-import org.cordacodeclub.bluff.user.UserResponder
-import org.cordacodeclub.bluff.user.UserResponderI
+import org.cordacodeclub.bluff.player.PlayerResponder
 
 class ResponseAccumulatorFlow(
     val otherPartySession: FlowSession,
-    val userResponder: UserResponderI,
-    private var accumulator: ResponseAccumulator,
+    val playerResponder: PlayerResponder,
+    private var accumulator: PlayerSideResponseAccumulator,
     val depth: Int = 0
-) : FlowLogic<ResponseAccumulator>() {
+) : FlowLogic<PlayerSideResponseAccumulator>() {
 
     @Suspendable
-    override fun call(): ResponseAccumulator {
+    override fun call(): PlayerSideResponseAccumulator {
         if (accumulator.isDone) {
             return accumulator
         }
 
         val me = serviceHub.myInfo.legalIdentities.first()
-        val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
+        val responseBuilder: PlayerSideResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
             { request ->
                 // The initiating flow expects a response
                 requireThat {
@@ -36,11 +36,11 @@ class ResponseAccumulatorFlow(
 //                    "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
                 }
                 logger.info("About to ask user from $request")
-                val userResponse = userResponder.getAction(request)
+                val userResponse = playerResponder.getAction(request)
                 val desiredAmount = userResponse.addAmount + request.lastRaise - request.yourWager
-                when (userResponse.action!!) {
-                    Action.Fold -> CallOrRaiseResponse()
-                    Action.Call, Action.Raise -> desiredAmount.let { amount ->
+                when (userResponse.playerAction!!) {
+                    PlayerAction.Fold -> CallOrRaiseResponse()
+                    PlayerAction.Call, PlayerAction.Raise -> desiredAmount.let { amount ->
                         if (amount == 0L) CallOrRaiseResponse(listOf(), serviceHub)
                         else CallOrRaiseResponse(
                             subFlow(
@@ -73,11 +73,13 @@ class ResponseAccumulatorFlow(
                     else -> throw IllegalArgumentException("Unknown type $request")
                 }
             }
-        return subFlow(ResponseAccumulatorFlow(
-            otherPartySession = otherPartySession,
-            userResponder = userResponder,
-            accumulator = nextAccumulator,
-            depth = depth + 1
-        ))
+        return subFlow(
+            ResponseAccumulatorFlow(
+                otherPartySession = otherPartySession,
+                playerResponder = playerResponder,
+                accumulator = nextAccumulator,
+                depth = depth + 1
+            )
+        )
     }
 }

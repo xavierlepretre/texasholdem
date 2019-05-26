@@ -10,6 +10,9 @@ import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.player.DesiredAction
+import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.RoundTableAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
@@ -98,8 +101,8 @@ class ResponseAccumulatorActorFlowTest {
                 playerCountSinceLastRaise = 0
             ),
             responderActions = mapOf(
-                player3 to listOf(DesiredAction(Action.Fold)),
-                player1 to listOf(DesiredAction(Action.Fold)),
+                player3 to listOf(DesiredAction(PlayerAction.Fold)),
+                player1 to listOf(DesiredAction(PlayerAction.Fold)),
                 player2 to listOf()
             )
         )
@@ -130,9 +133,9 @@ class ResponseAccumulatorActorFlowTest {
                 playerCountSinceLastRaise = 0
             ),
             responderActions = mapOf(
-                player3 to listOf(DesiredAction(Action.Call)),
-                player1 to listOf(DesiredAction(Action.Call)),
-                player2 to listOf(DesiredAction(Action.Call))
+                player3 to listOf(DesiredAction(PlayerAction.Call)),
+                player1 to listOf(DesiredAction(PlayerAction.Call)),
+                player2 to listOf(DesiredAction(PlayerAction.Call))
             )
         )
         val future = dealerNode.startFlow(flow)

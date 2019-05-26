@@ -1,13 +1,14 @@
-package org.cordacodeclub.bluff.user
+package org.cordacodeclub.bluff.player
 
 import net.corda.core.identity.Party
-import org.cordacodeclub.bluff.flow.CallOrRaiseRequest
+import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 
-interface UserResponderI {
+interface PlayerResponder {
     fun getAction(request: CallOrRaiseRequest): ActionRequest
 }
 
-class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseService) : UserResponderI {
+class PlayerResponderPoller(val me: Party, val playerDatabaseService: PlayerDatabaseService) :
+    PlayerResponder {
 
     companion object {
         const val pollingInterval: Long = 5000 // 5 seconds
@@ -22,7 +23,7 @@ class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseServ
                 cards = request.yourCards.map { it.card },
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
-                action = null,
+                playerAction = null,
                 addAmount = 0L
             )
         ).second
@@ -30,7 +31,7 @@ class UserResponder(val me: Party, val playerDatabaseService: PlayerDatabaseServ
         do {
             Thread.sleep(pollingInterval)
             actedRequest = playerDatabaseService.getActionRequest(actedRequest.id)!!
-        } while (actedRequest.action == null)
+        } while (actedRequest.playerAction == null)
         return actedRequest
     }
 }

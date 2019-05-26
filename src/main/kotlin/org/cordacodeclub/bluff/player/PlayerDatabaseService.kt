@@ -1,9 +1,8 @@
-package org.cordacodeclub.bluff.user
+package org.cordacodeclub.bluff.player
 
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
 import org.cordacodeclub.bluff.db.DatabaseService
-import org.cordacodeclub.bluff.flow.Action
 import org.cordacodeclub.grom356.CardList.Companion.toString
 
 /**
@@ -24,8 +23,8 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun addActionRequest(actionRequest: ActionRequest): Pair<Int, ActionRequest> {
-        val query = "insert into ${tableName} " +
-                "(player, cards, youBet, lastRaise, action, addAmount) " +
+        val query = "insert into $tableName " +
+                "(player, cards, youBet, lastRaise, playerAction, addAmount) " +
                 "values(?, ?, ?, ?, ?, ?);"
 
         val params = mapOf(
@@ -49,10 +48,10 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun updateActionRequest(actionRequest: ActionRequest): Int {
-        val query = "update $tableName set action = ?, addAmount =? where id = ?"
+        val query = "update $tableName set playerAction = ?, addAmount =? where id = ?"
 
         val params = mapOf(
-            1 to actionRequest.action!!.name,
+            1 to actionRequest.playerAction!!.name,
             2 to actionRequest.addAmount,
             3 to actionRequest.id
         )
@@ -66,7 +65,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
      */
     fun getActionRequest(id: Long): ActionRequest? {
         val query = "select player, cards, youBet, " +
-                "lastRaise, action, addAmount from $tableName where id = ?"
+                "lastRaise, playerAction, addAmount from $tableName where id = ?"
 
         val params = mapOf(1 to id)
         val results = executeQuery(query, params) {
@@ -76,7 +75,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
-                it.getString("action").let { if (it == "") null else Action.valueOf(it) },
+                it.getString("playerAction").let { if (it == "") null else PlayerAction.valueOf(it) },
                 it.getLong("addAmount")
             )
         }
@@ -89,7 +88,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
      */
     fun getTopActionRequest(): ActionRequest? {
         val query = "select id, player, cards, youBet, " +
-                "lastRaise, action, addAmount from $tableName limit 1"
+                "lastRaise, playerAction, addAmount from $tableName limit 1"
 
         val results = executeQuery(query, emptyMap()) {
             ActionRequest(
@@ -98,7 +97,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 it.getString("cards"),
                 it.getLong("youBet"),
                 it.getLong("lastRaise"),
-                Action.valueOf(it.getString("action")),
+                PlayerAction.valueOf(it.getString("playerAction")),
                 it.getLong("addAmount")
             )
         }
@@ -118,7 +117,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 cards varchar(22) not null,
                 youBet int not null,
                 lastRaise int not null,
-                action varchar(10) not null,
+                playerAction varchar(10) not null,
                 addAmount int not null
             );
             alter table $tableName add primary key (id)"""

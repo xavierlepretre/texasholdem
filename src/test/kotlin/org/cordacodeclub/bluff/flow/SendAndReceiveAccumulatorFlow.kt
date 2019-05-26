@@ -8,6 +8,12 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.player.DesiredAction
+import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.CallOrRaiseRequest
+import org.cordacodeclub.bluff.round.CallOrRaiseResponse
+import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.round.RoundTableDone
 import org.cordacodeclub.bluff.state.TokenState
 
 object SendAndReceiveAccumulatorFlow {
@@ -24,7 +30,12 @@ object SendAndReceiveAccumulatorFlow {
         override fun call(): RoundTableAccumulator {
             val playerFlows = players.map { player ->
                 initiateFlow(player).also {
-                    it.send(responderActions[player] ?: listOf(DesiredAction(Action.Fold, 0L)))
+                    it.send(responderActions[player] ?: listOf(
+                        DesiredAction(
+                            PlayerAction.Fold,
+                            0L
+                        )
+                    ))
                 }
             }
             return subFlow(
@@ -46,9 +57,9 @@ object SendAndReceiveAccumulatorFlow {
             desiredActions.forEach { desiredAction ->
                 val request = otherPartySession.receive<CallOrRaiseRequest>().unwrap { it }
                 val desiredAmount = desiredAction.raiseBy + request.lastRaise - request.yourWager
-                val response = when (desiredAction.action) {
-                    Action.Fold -> CallOrRaiseResponse()
-                    Action.Call, Action.Raise -> desiredAmount.let { amount ->
+                val response = when (desiredAction.playerAction) {
+                    PlayerAction.Fold -> CallOrRaiseResponse()
+                    PlayerAction.Call, PlayerAction.Raise -> desiredAmount.let { amount ->
                         if (amount == 0L) CallOrRaiseResponse(listOf(), serviceHub)
                         else CallOrRaiseResponse(
                             subFlow(

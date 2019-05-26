@@ -8,15 +8,19 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
-import org.cordacodeclub.bluff.user.ActionRequest
-import org.cordacodeclub.bluff.user.UserResponderI
+import org.cordacodeclub.bluff.round.CallOrRaiseRequest
+import org.cordacodeclub.bluff.round.PlayerSideResponseAccumulator
+import org.cordacodeclub.bluff.round.RoundTableAccumulator
+import org.cordacodeclub.bluff.player.ActionRequest
+import org.cordacodeclub.bluff.player.DesiredAction
+import org.cordacodeclub.bluff.player.PlayerResponder
 
 object ResponseAccumulatorActorFlow {
 
-    class UserResponder(
+    class PlayerResponderPrepared(
         val desiredActions: List<DesiredAction>,
         val me: Party
-    ) : UserResponderI {
+    ) : PlayerResponder {
 
         private var index = 0
 
@@ -27,7 +31,7 @@ object ResponseAccumulatorActorFlow {
                 cards = request.yourCards.map { it.card },
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
-                action = desiredActions[index].action,
+                playerAction = desiredActions[index].playerAction,
                 addAmount = desiredActions[index].raiseBy
             ).also {
                 index++
@@ -41,10 +45,10 @@ object ResponseAccumulatorActorFlow {
         val players: List<Party>,
         val accumulator: RoundTableAccumulator,
         val responderActions: Map<Party, List<DesiredAction>> = mapOf()
-    ) : FlowLogic<Map<Party, ResponseAccumulator>>() {
+    ) : FlowLogic<Map<Party, PlayerSideResponseAccumulator>>() {
 
         @Suspendable
-        override fun call(): Map<Party, ResponseAccumulator> {
+        override fun call(): Map<Party, PlayerSideResponseAccumulator> {
             val playerFlows = players.map { player ->
                 initiateFlow(player).also {
                     it.send(responderActions[player]!!)
@@ -58,7 +62,7 @@ object ResponseAccumulatorActorFlow {
                 )
             )
             return players.mapIndexed { index, player ->
-                player to playerFlows[index].receive<ResponseAccumulator>().unwrap { it }
+                player to playerFlows[index].receive<PlayerSideResponseAccumulator>().unwrap { it }
             }.toMap()
         }
     }
@@ -72,8 +76,8 @@ object ResponseAccumulatorActorFlow {
             val accumulated = subFlow(
                 ResponseAccumulatorFlow(
                     otherPartySession = otherPartySession,
-                    userResponder = UserResponder(desiredActions, serviceHub.myInfo.legalIdentities.first()),
-                    accumulator = ResponseAccumulator()
+                    playerResponder = PlayerResponderPrepared(desiredActions, serviceHub.myInfo.legalIdentities.first()),
+                    accumulator = PlayerSideResponseAccumulator()
                 )
             )
             otherPartySession.send(accumulated)

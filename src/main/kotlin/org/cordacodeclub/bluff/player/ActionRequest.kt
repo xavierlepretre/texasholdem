@@ -1,8 +1,8 @@
-package org.cordacodeclub.bluff.user
+package org.cordacodeclub.bluff.player
 
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
-import org.cordacodeclub.bluff.flow.Action
+import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardList
 
@@ -13,7 +13,7 @@ data class ActionRequest(
     val cards: List<Card>,
     val youBet: Long,
     val lastRaise: Long,
-    val action: Action?,
+    val playerAction: PlayerAction?,
     val addAmount: Long
 ) {
     constructor(
@@ -22,7 +22,7 @@ data class ActionRequest(
         cards: String,
         youBet: Long,
         lastRaise: Long,
-        action: Action?,
+        playerAction: PlayerAction?,
         addAmount: Long
     ) : this(
         id = id,
@@ -30,7 +30,7 @@ data class ActionRequest(
         cards = CardList.valueOf(cards),
         youBet = youBet,
         lastRaise = lastRaise,
-        action = action,
+        playerAction = playerAction,
         addAmount = addAmount
     )
 }

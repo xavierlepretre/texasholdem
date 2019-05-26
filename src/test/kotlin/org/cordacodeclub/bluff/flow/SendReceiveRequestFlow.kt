@@ -7,6 +7,8 @@ import net.corda.core.flows.InitiatedBy
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.round.CallOrRaiseRequest
+import org.cordacodeclub.bluff.round.CallOrRaiseResponse
 
 object SendReceiveRequestFlow {
 
