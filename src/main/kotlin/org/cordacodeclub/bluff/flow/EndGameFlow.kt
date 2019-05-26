@@ -10,7 +10,7 @@
 //class EndGameFlow(
 //        val roundTableAccumulator: DealerRoundAccumulator,
 //        val gameState: GameState,
-//        override val progressTracker: ProgressTracker = TokenStateCollectorFlow.tracker()
+//        override val progressTracker: ProgressTracker = CollectOwnTokenStateFlow.tracker()
 //) : FlowLogic<List<StateAndRef<PlayerHandState>>>() {
 //
 //    init {

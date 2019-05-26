@@ -10,7 +10,7 @@ import org.cordacodeclub.bluff.round.CallOrRaiseResponse
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.round.RoundTableDone
 
-class RoundTableAccumulatorFlow(
+class DealerRoundAccumulatorFlow(
     val deckInfo: CardDeckInfo,
     val playerFlows: List<FlowSession>,
     val accumulator: DealerRoundAccumulator,
@@ -36,7 +36,7 @@ class RoundTableAccumulatorFlow(
         val response = playerFlows[accumulator.currentPlayerIndex]
             .sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
         return subFlow(
-            RoundTableAccumulatorFlow(
+            DealerRoundAccumulatorFlow(
                 deckInfo = deckInfo,
                 playerFlows = playerFlows,
                 accumulator = accumulator.stepForwardWhenCurrentPlayerSent(response),

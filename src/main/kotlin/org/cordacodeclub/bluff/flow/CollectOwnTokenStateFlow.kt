@@ -14,7 +14,7 @@ import net.corda.core.utilities.ProgressTracker
 import org.cordacodeclub.bluff.state.TokenSchemaV1
 import org.cordacodeclub.bluff.state.TokenState
 
-class TokenStateCollectorFlow(
+class CollectOwnTokenStateFlow(
     val desired: TokenState,
     override val progressTracker: ProgressTracker = tracker()
 ) : FlowLogic<List<StateAndRef<TokenState>>>() {

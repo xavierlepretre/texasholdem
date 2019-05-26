@@ -10,7 +10,7 @@ import net.corda.core.utilities.unwrap
 import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
 
-object SendReceiveRequestFlow {
+object SingleRequestFlow {
 
     @InitiatingFlow
     class Initiator(

@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class ResponseAccumulatorActorFlowTest {
+class ControlledPlayerSideResponseAccumulatorFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var minterNode: StartedMockNode
     private lateinit var dealerNode: StartedMockNode
@@ -64,7 +64,7 @@ class ResponseAccumulatorActorFlowTest {
         listOf(minterNode, dealerNode, player1Node, player2Node, player3Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
             it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
-            it.registerInitiatedFlow(ResponseAccumulatorActorFlow.RemoteControlledResponder::class.java)
+            it.registerInitiatedFlow(ControlledPlayerSideResponseAccumulatorFlow.RemoteControlledResponder::class.java)
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3), 100, 1)
         val mintFuture = minterNode.startFlow(mintFlow)
@@ -87,7 +87,7 @@ class ResponseAccumulatorActorFlowTest {
     fun `Can receive fold responses accumulated`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = ResponseAccumulatorActorFlow.Initiator(
+        val flow = ControlledPlayerSideResponseAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
@@ -119,7 +119,7 @@ class ResponseAccumulatorActorFlowTest {
     fun `Can receive call responses accumulated`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = ResponseAccumulatorActorFlow.Initiator(
+        val flow = ControlledPlayerSideResponseAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(

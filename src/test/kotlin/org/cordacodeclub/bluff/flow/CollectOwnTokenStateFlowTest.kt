@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class TokenStateCollectorFlowTest {
+class CollectOwnTokenStateFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var minterNode: StartedMockNode
     private lateinit var player1Node: StartedMockNode
@@ -59,7 +59,7 @@ class TokenStateCollectorFlowTest {
 
     @Test
     fun `Easy collection of 6 states`() {
-        val flow = TokenStateCollectorFlow(TokenState(minter, player1, 60, false))
+        val flow = CollectOwnTokenStateFlow(TokenState(minter, player1, 60, false))
         val future = player1Node.startFlow(flow)
         network.runNetwork()
 
@@ -70,7 +70,7 @@ class TokenStateCollectorFlowTest {
 
     @Test
     fun `Collection with split states`() {
-        val flow = TokenStateCollectorFlow(TokenState(minter, player1, 46, false))
+        val flow = CollectOwnTokenStateFlow(TokenState(minter, player1, 46, false))
         val future = player1Node.startFlow(flow)
         network.runNetwork()
 

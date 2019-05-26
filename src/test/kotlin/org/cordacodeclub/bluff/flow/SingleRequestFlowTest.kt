@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class SendReceiveRequestFlowTest {
+class SingleRequestFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var player1Node: StartedMockNode
     private lateinit var player2Node: StartedMockNode
@@ -41,7 +41,7 @@ class SendReceiveRequestFlowTest {
 
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         listOf(player1Node, player2Node).forEach {
-            it.registerInitiatedFlow(SendReceiveRequestFlow.FoldResponder::class.java)
+            it.registerInitiatedFlow(SingleRequestFlow.FoldResponder::class.java)
         }
         network.runNetwork()
     }
@@ -53,7 +53,7 @@ class SendReceiveRequestFlowTest {
 
     @Test
     fun `Can receive response`() {
-        val flow = SendReceiveRequestFlow.Initiator(
+        val flow = SingleRequestFlow.Initiator(
             player2,
             CallOrRaiseRequest(
                 minter = player1,

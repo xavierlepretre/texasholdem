@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class SendAndReceiveAccumulatorFlowTest {
+class ControlledDealerAccumulatorFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var minterNode: StartedMockNode
     private lateinit var dealerNode: StartedMockNode
@@ -65,7 +65,7 @@ class SendAndReceiveAccumulatorFlowTest {
         listOf(minterNode, dealerNode, player1Node, player2Node, player3Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
             it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
-            it.registerInitiatedFlow(SendAndReceiveAccumulatorFlow.RemoteControlledResponder::class.java)
+            it.registerInitiatedFlow(ControlledDealerAccumulatorFlow.RemoteControlledResponder::class.java)
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3), 100, 1)
         val mintFuture = minterNode.startFlow(mintFlow)
@@ -88,7 +88,7 @@ class SendAndReceiveAccumulatorFlowTest {
     fun `Can receive fold responses`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = SendAndReceiveAccumulatorFlow.Initiator(
+        val flow = ControlledDealerAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
@@ -124,7 +124,7 @@ class SendAndReceiveAccumulatorFlowTest {
     fun `Can receive call responses`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = SendAndReceiveAccumulatorFlow.Initiator(
+        val flow = ControlledDealerAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
@@ -165,7 +165,7 @@ class SendAndReceiveAccumulatorFlowTest {
     fun `Can receive responses from long round`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = SendAndReceiveAccumulatorFlow.Initiator(
+        val flow = ControlledDealerAccumulatorFlow.Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(

@@ -15,7 +15,7 @@ import org.cordacodeclub.bluff.player.ActionRequest
 import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerResponder
 
-object ResponseAccumulatorActorFlow {
+object ControlledPlayerSideResponseAccumulatorFlow {
 
     class PlayerResponderPrepared(
         val desiredActions: List<DesiredAction>,
@@ -55,7 +55,7 @@ object ResponseAccumulatorActorFlow {
                 }
             }
             val accumulated = subFlow(
-                RoundTableAccumulatorFlow(
+                DealerRoundAccumulatorFlow(
                     deckInfo = deckInfo,
                     playerFlows = playerFlows,
                     accumulator = accumulator
@@ -74,7 +74,7 @@ object ResponseAccumulatorActorFlow {
         override fun call() {
             val desiredActions = otherPartySession.receive<List<DesiredAction>>().unwrap { it }
             val accumulated = subFlow(
-                ResponseAccumulatorFlow(
+                PlayerSideResponseAccumulatorFlow(
                     otherPartySession = otherPartySession,
                     playerResponder = PlayerResponderPrepared(desiredActions, serviceHub.myInfo.legalIdentities.first()),
                     accumulator = PlayerSideResponseAccumulator()

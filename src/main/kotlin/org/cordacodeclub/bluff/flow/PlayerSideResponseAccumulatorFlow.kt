@@ -10,7 +10,7 @@ import org.cordacodeclub.bluff.round.*
 import org.cordacodeclub.bluff.state.TokenState
 import org.cordacodeclub.bluff.player.PlayerResponder
 
-class ResponseAccumulatorFlow(
+class PlayerSideResponseAccumulatorFlow(
     val otherPartySession: FlowSession,
     val playerResponder: PlayerResponder,
     private var accumulator: PlayerSideResponseAccumulator,
@@ -44,7 +44,7 @@ class ResponseAccumulatorFlow(
                         if (amount == 0L) CallOrRaiseResponse(listOf(), serviceHub)
                         else CallOrRaiseResponse(
                             subFlow(
-                                TokenStateCollectorFlow(
+                                CollectOwnTokenStateFlow(
                                     TokenState(
                                         minter = request.minter,
                                         owner = me,
@@ -74,7 +74,7 @@ class ResponseAccumulatorFlow(
                 }
             }
         return subFlow(
-            ResponseAccumulatorFlow(
+            PlayerSideResponseAccumulatorFlow(
                 otherPartySession = otherPartySession,
                 playerResponder = playerResponder,
                 accumulator = nextAccumulator,

@@ -277,7 +277,7 @@ object BlindBetFlow {
         companion object {
             object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token moreBets.") {
                 override fun childProgressTracker(): ProgressTracker {
-                    return TokenStateCollectorFlow.tracker()
+                    return CollectOwnTokenStateFlow.tracker()
                 }
             }
 
@@ -321,7 +321,7 @@ object BlindBetFlow {
             } else {
                 // Find the states to bet according to the amount requested
                 subFlow(
-                    TokenStateCollectorFlow(
+                    CollectOwnTokenStateFlow(
                         TokenState(request.minter, me, request.amount, false),
                         RECEIVING_REQUEST_FOR_STATES.childProgressTracker()
                     )

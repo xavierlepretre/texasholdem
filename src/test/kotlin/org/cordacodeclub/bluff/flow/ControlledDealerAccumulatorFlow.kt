@@ -16,7 +16,7 @@ import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.round.RoundTableDone
 import org.cordacodeclub.bluff.state.TokenState
 
-object SendAndReceiveAccumulatorFlow {
+object ControlledDealerAccumulatorFlow {
 
     @InitiatingFlow
     class Initiator(
@@ -39,7 +39,7 @@ object SendAndReceiveAccumulatorFlow {
                 }
             }
             return subFlow(
-                RoundTableAccumulatorFlow(
+                DealerRoundAccumulatorFlow(
                     deckInfo = deckInfo,
                     playerFlows = playerFlows,
                     accumulator = accumulator
@@ -63,7 +63,7 @@ object SendAndReceiveAccumulatorFlow {
                         if (amount == 0L) CallOrRaiseResponse(listOf(), serviceHub)
                         else CallOrRaiseResponse(
                             subFlow(
-                                TokenStateCollectorFlow(
+                                CollectOwnTokenStateFlow(
                                     TokenState(
                                         minter = request.minter,
                                         owner = serviceHub.myInfo.legalIdentities.first(),
