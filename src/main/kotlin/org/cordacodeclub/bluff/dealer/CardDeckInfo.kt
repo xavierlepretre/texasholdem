@@ -37,49 +37,49 @@ data class CardDeckInfo(val cards: List<AssignedCard>) {
         const val COMMUNITY_CARDS_COUNT = 5
 
         fun createShuffledWith(players: List<CordaX500Name>, dealer: CordaX500Name) =
-            with(Random(System.nanoTime())) {
-                // TODO better shuffling algorithm?
-                Card.newDeck().shuffled().map {
-                    it to nextBytes(SALT_LENGTH)
-                }
-            }.let { saltedCards ->
-                saltedCards.mapIndexed { index, pair ->
-                    // Assign cards
-                    (index / CARDS_PER_PLAYER).let { playerIndex ->
-                        if (playerIndex < players.size) players[playerIndex]
-                        else dealer
-                    }.let { owner ->
-                        AssignedCard(pair.first, pair.second, owner)
+                with(Random(System.nanoTime())) {
+                    // TODO better shuffling algorithm?
+                    Card.newDeck().shuffled().map {
+                        it to nextBytes(SALT_LENGTH)
                     }
+                }.let { saltedCards ->
+                    saltedCards.mapIndexed { index, pair ->
+                        // Assign cards
+                        (index / CARDS_PER_PLAYER).let { playerIndex ->
+                            if (playerIndex < players.size) players[playerIndex]
+                            else dealer
+                        }.let { owner ->
+                            AssignedCard(pair.first, pair.second, owner)
+                        }
+                    }
+                }.let {
+                    CardDeckInfo(it)
                 }
-            }.let {
-                CardDeckInfo(it)
-            }
     }
 
     fun getPlayerCards(playerIndex: Int) = cards
-        .drop(playerIndex * CARDS_PER_PLAYER)
-        .take(CARDS_PER_PLAYER)
+            .drop(playerIndex * CARDS_PER_PLAYER)
+            .take(CARDS_PER_PLAYER)
 
     fun getCommunityCards(playerCount: Int) = cards
-        .drop(playerCount * CARDS_PER_PLAYER)
-        .take(COMMUNITY_CARDS_COUNT)
+            .drop(playerCount * CARDS_PER_PLAYER)
+            .take(COMMUNITY_CARDS_COUNT)
 }
 
-fun MerkleTree.getLeaves(partBuilt : List<MerkleTree.Leaf> = emptyList()) : List<MerkleTree.Leaf> = when(this) {
+fun MerkleTree.getLeaves(partBuilt: List<MerkleTree.Leaf> = emptyList()): List<MerkleTree.Leaf> = when (this) {
     is MerkleTree.Leaf -> partBuilt.plus(this)
     is MerkleTree.Node -> partBuilt.plus(this.left.getLeaves().plus(this.right.getLeaves()))
     else -> throw IllegalArgumentException("Unkown type ${this::class}")
 }
 
 fun MerkleTree.containsAll(assignedCards: List<AssignedCard>) =
-    getLeaves().containsAll(assignedCards)
+        getLeaves().containsAll(assignedCards)
 
 fun List<MerkleTree.Leaf>.containsAll(assignedCards: List<AssignedCard>) =
-    map { it.hash }.containsAll(assignedCards.map { it.hash })
+        map { it.hash }.containsAll(assignedCards.map { it.hash })
 
 fun List<MerkleTree.Leaf>.contains(assignedCard: AssignedCard) =
-    map { it.hash }.contains(assignedCard.hash)
+        map { it.hash }.contains(assignedCard.hash)
 
-//Add functions to check player cards with their positions in merkle root
+// TODO Add functions to check player cards with their positions in merkle root
 

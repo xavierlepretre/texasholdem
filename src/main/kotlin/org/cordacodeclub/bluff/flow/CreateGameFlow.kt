@@ -18,9 +18,11 @@ import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo.Companion.CARDS_PER_PLAYER
 import org.cordacodeclub.bluff.dealer.containsAll
 import org.cordacodeclub.bluff.state.*
-import org.cordacodeclub.bluff.user.PlayerDatabaseService
-import org.cordacodeclub.bluff.user.UserResponder
+import org.cordacodeclub.bluff.player.PlayerDatabaseService
+import org.cordacodeclub.bluff.player.PlayerResponderPoller
 import org.cordacodeclub.bluff.contract.GameContract.Commands.*
+import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.*
 
 //Initial flow
 object CreateGameFlow {
@@ -102,7 +104,7 @@ object CreateGameFlow {
 
             // PLayer after smallBet and bigBet starts
             // Send only their cards to each player, ask for bets
-            val accumulated = RoundTableAccumulator(
+            val accumulated = DealerRoundAccumulator(
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = latestGameState.lastBettor + 1,
@@ -230,10 +232,10 @@ object CreateGameFlow {
         override fun call(): SignedTransaction {
             val me = serviceHub.myInfo.legalIdentities.first()
             val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
-            val userResponder = UserResponder(me, playerDatabaseService)
+            val userResponder = PlayerResponderPoller(me, playerDatabaseService)
             logger.info("created userResponder")
 
-            val responseBuilder: ResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
+            val responseBuilder: PlayerSideResponseAccumulator.(CallOrRaiseRequest) -> CallOrRaiseResponse =
                 { request ->
                     // The initiating flow expects a response
                     requireThat {
@@ -243,8 +245,8 @@ object CreateGameFlow {
                         "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
                     }
                     val userResponse = userResponder.getAction(request)
-                    when (userResponse.action!!) {
-                        Action.Call -> CallOrRaiseResponse(
+                    when (userResponse.playerAction!!) {
+                        PlayerAction.Call -> CallOrRaiseResponse(
                             subFlow(
                                 TokenStateCollectorFlow(
                                     TokenState(
@@ -256,7 +258,7 @@ object CreateGameFlow {
                             ),
                             serviceHub
                         )
-                        Action.Raise -> CallOrRaiseResponse(
+                        PlayerAction.Raise -> CallOrRaiseResponse(
                             subFlow(
                                 TokenStateCollectorFlow(
                                     TokenState(
@@ -268,7 +270,7 @@ object CreateGameFlow {
                             ),
                             serviceHub
                         )
-                        Action.Fold -> CallOrRaiseResponse()
+                        PlayerAction.Fold -> CallOrRaiseResponse()
                     }
                 }
 

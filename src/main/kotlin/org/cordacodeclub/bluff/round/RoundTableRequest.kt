@@ -17,11 +17,11 @@ data class RoundTableDone(val allNewTokens: List<StateAndRef<TokenState>>) : Rou
 
 @CordaSerializable
 data class CallOrRaiseRequest(
-    val minter: Party,
-    val lastRaise: Long,
-    val yourWager: Long,
-    val yourCards: List<AssignedCard>,
-    val communityCards: List<AssignedCard>
+        val minter: Party,
+        val lastRaise: Long,
+        val yourWager: Long,
+        val yourCards: List<AssignedCard>,
+        val communityCards: List<AssignedCard>
 ) : RoundTableRequest {
     init {
         requireThat {

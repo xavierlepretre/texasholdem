@@ -3,6 +3,7 @@ package org.cordacodeclub.bluff.player
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
 import org.cordacodeclub.bluff.db.DatabaseService
+import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardList.Companion.toString
 
 /**
@@ -77,6 +78,52 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 it.getLong("lastRaise"),
                 it.getString("playerAction").let { if (it == "") null else PlayerAction.valueOf(it) },
                 it.getLong("addAmount")
+            )
+        }
+
+        log.info("Selected ${results.size} requests from $tableName table.")
+        return results.firstOrNull()
+    }
+
+    /**
+     */
+    fun getPlayerCards(player: String): List<Card?> {
+        val query = "select player, cards, youBet, " +
+                "lastRaise, action, addAmount from $tableName where player = ?"
+
+        val params = mapOf(1 to player)
+        val results = executeQuery(query, params) {
+            ActionRequest(
+                    it.getLong("id"),
+                    player,
+                    it.getString("cards"),
+                    it.getLong("youBet"),
+                    it.getLong("lastRaise"),
+                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it)  },
+                    it.getLong("addAmount")
+            ).cards
+        }
+
+        log.info("Selected ${results.size} requests from $tableName table.")
+        return results.first()
+    }
+
+    /**
+     */
+    fun getPlayerAction(player: String): ActionRequest? {
+        val query = "select player, cards, youBet, " +
+                "lastRaise, action, addAmount from $tableName where player = ?"
+
+        val params = mapOf(1 to player)
+        val results = executeQuery(query, params) {
+            ActionRequest(
+                    it.getLong("id"),
+                    player,
+                    it.getString("cards"),
+                    it.getLong("youBet"),
+                    it.getLong("lastRaise"),
+                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it)  },
+                    it.getLong("addAmount")
             )
         }
 
