@@ -68,6 +68,7 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
             }
         }
 
+    //Possibly save the hash leaves of the deck to do internal checks for card verification
     private fun setUpStorage() {
         val createTable = """
             create table if not exists $tableName(

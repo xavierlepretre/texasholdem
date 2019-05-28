@@ -32,7 +32,7 @@ enum class BettingRound {
     PRE_FLOP,  //First round of betting
     FLOP,      //Three community cards places in the middle face up
     TURN,      //Fourth community card revealed
-    RIVER;    //Fifth community card reveled - final round
+    RIVER;     //Fifth community card reveled - final round
 
     //To return next element
     fun next(): BettingRound {

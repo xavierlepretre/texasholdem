@@ -119,8 +119,13 @@ object EndGameFlow {
                     }
 
             progressTracker.currentStep = REVEAL_HANDS
+            //Collect hands, assemble deck, compare hashes
+            //Pass to contract for winner selection
             val playerHands = accumulator.states
             val handAssignedCards = playerHands.flatMap { it.cardIndexes }.map { deckInfo.cards[it] }
+
+
+            // TODO Select the winner and create token state for the winner(update all other token states)
             val updatedGameState = gameState.copy(cards = handAssignedCards)
 
 //            players.forEachIndexed { index, _ ->
@@ -202,6 +207,7 @@ object EndGameFlow {
             val cardIndexes = myCards.map { card -> gameCards.map { it.card }.indexOf(card) }
 
             // TODO proper request for hand
+            // TODO shuffle community cards -> convert into interface
             val playerHandState = PlayerHandState(cardIndexes.shuffled().take(5), me)
 
             progressTracker.currentStep = SENDING_HAND_STATE
