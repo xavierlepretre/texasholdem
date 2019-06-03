@@ -1,17 +1,20 @@
 package org.cordacodeclub.bluff.flow
 
+import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
+import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.state.AssignedCard
 import org.cordacodeclub.grom356.Card
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import kotlin.random.Random
 import kotlin.test.assertTrue
 
 /**
@@ -53,16 +56,16 @@ class SingleRequestFlowTest {
 
     @Test
     fun `Can receive response`() {
+        val deck = CardDeckInfo.createShuffledWith(
+            listOf(player1.name, player2.name), player1.name)
         val flow = SingleRequestFlow.Initiator(
             player2,
             CallOrRaiseRequest(
                 minter = player1,
                 lastRaise = 100L,
                 yourWager = 0L,
-                yourCards = listOf(
-                    AssignedCard(Card.valueOf("2h"), "Hello1".toByteArray(), player2.name),
-                    AssignedCard(Card.valueOf("2s"), "Hello2".toByteArray(), player2.name)
-                ),
+                cardHashes = deck.hashedCards,
+                yourCards = deck.getPlayerCards(1),
                 communityCards = listOf()
             )
         )

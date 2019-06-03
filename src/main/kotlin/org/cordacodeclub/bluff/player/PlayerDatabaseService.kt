@@ -48,17 +48,17 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
 
     /**
      */
-    fun updateActionRequest(actionRequest: ActionRequest): Int {
-        val query = "update $tableName set playerAction = ?, addAmount =? where id = ?"
+    fun updateActionRequest(id: Long, action: PlayerAction, addAmount: Long): Int {
+        val query = "update $tableName set playerAction = ?, addAmount = ? where id = ?"
 
         val params = mapOf(
-            1 to actionRequest.playerAction!!.name,
-            2 to actionRequest.addAmount,
-            3 to actionRequest.id
+            1 to action.name,
+            2 to addAmount,
+            3 to id
         )
 
         val rowCount = executeUpdate(query, params)
-        log.info("Request ${actionRequest.id} updated in $tableName table. rowCount: $rowCount")
+        log.info("Request $id updated in $tableName table. rowCount: $rowCount")
         return rowCount
     }
 
@@ -83,6 +83,14 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
 
         log.info("Selected ${results.size} requests from $tableName table.")
         return results.firstOrNull()
+    }
+
+    fun deleteActionRequest(id: Long): Int {
+        val query = "delete from $tableName where id = ? limit 1"
+        val params = mapOf(1 to id)
+        val rowCount = executeUpdate(query, params)
+        log.info("Request $id removed in $tableName table. rowCount: $rowCount")
+        return rowCount
     }
 
     /**

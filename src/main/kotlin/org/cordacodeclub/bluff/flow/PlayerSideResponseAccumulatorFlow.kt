@@ -4,18 +4,20 @@ import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.FlowSession
+import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.player.ActionRequest
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.round.*
 import org.cordacodeclub.bluff.state.TokenState
-import org.cordacodeclub.bluff.player.PlayerResponder
 
-class PlayerSideResponseAccumulatorFlow(
+open class PlayerSideResponseAccumulatorFlow(
     val otherPartySession: FlowSession,
-    val playerResponder: PlayerResponder,
     private var accumulator: PlayerSideResponseAccumulator,
+    val playerResponseCollectingFlow: (CallOrRaiseRequest) -> PlayerResponseCollectingFlow,
     val depth: Int = 0
 ) : FlowLogic<PlayerSideResponseAccumulator>() {
+
 
     @Suspendable
     override fun call(): PlayerSideResponseAccumulator {
@@ -36,7 +38,10 @@ class PlayerSideResponseAccumulatorFlow(
 //                    "My wager should match my new bets" using (myNewBets.map { it.state.data.amount }.sum() == request.yourWager)
                 }
                 logger.info("About to ask user from $request")
-                val userResponse = playerResponder.getAction(request)
+                val userResponse: ActionRequest = subFlow(
+                    // Bouncing off the minter since it is not doing anything
+                    playerResponseCollectingFlow(request)
+                )
                 val desiredAmount = userResponse.addAmount + request.lastRaise - request.yourWager
                 when (userResponse.playerAction!!) {
                     PlayerAction.Fold -> CallOrRaiseResponse()
@@ -76,8 +81,8 @@ class PlayerSideResponseAccumulatorFlow(
         return subFlow(
             PlayerSideResponseAccumulatorFlow(
                 otherPartySession = otherPartySession,
-                playerResponder = playerResponder,
                 accumulator = nextAccumulator,
+                playerResponseCollectingFlow = playerResponseCollectingFlow,
                 depth = depth + 1
             )
         )

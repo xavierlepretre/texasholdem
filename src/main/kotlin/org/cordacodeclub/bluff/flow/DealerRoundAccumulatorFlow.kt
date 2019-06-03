@@ -30,6 +30,7 @@ class DealerRoundAccumulatorFlow(
             minter = accumulator.minter,
             lastRaise = accumulator.currentLevel,
             yourWager = accumulator.currentPlayerSum,
+            cardHashes = deckInfo.hashedCards,
             yourCards = deckInfo.getPlayerCards(accumulator.currentPlayerIndex),
             communityCards = listOf()
         )

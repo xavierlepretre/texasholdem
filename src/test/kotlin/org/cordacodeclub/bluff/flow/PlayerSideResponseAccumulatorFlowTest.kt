@@ -1,18 +1,26 @@
 package org.cordacodeclub.bluff.flow
 
+import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.StateAndRef
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
+import net.corda.core.utilities.unwrap
 import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.player.ActionRequest
 import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
+import org.cordacodeclub.bluff.round.PlayerSideResponseAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
@@ -23,7 +31,7 @@ import kotlin.test.assertEquals
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class ControlledPlayerSideResponseAccumulatorFlowTest {
+class PlayerSideResponseAccumulatorFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var minterNode: StartedMockNode
     private lateinit var dealerNode: StartedMockNode
@@ -38,6 +46,69 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
     private lateinit var mintTx: SignedTransaction
     private lateinit var blindBetTx: SignedTransaction
     private lateinit var potTokens: Map<Party, List<StateAndRef<TokenState>>>
+
+    companion object {
+        private lateinit var responderActions: Map<Party, List<DesiredAction>>
+    }
+
+    @InitiatingFlow
+    private class Initiator(
+        val deckInfo: CardDeckInfo,
+        val players: List<Party>,
+        val accumulator: DealerRoundAccumulator
+    ) : FlowLogic<Map<Party, PlayerSideResponseAccumulator>>() {
+
+        @Suspendable
+        override fun call(): Map<Party, PlayerSideResponseAccumulator> {
+            val playerFlows = players.map { player ->
+                initiateFlow(player)
+            }
+            val accumulated = subFlow(
+                DealerRoundAccumulatorFlow(
+                    deckInfo = deckInfo,
+                    playerFlows = playerFlows,
+                    accumulator = accumulator
+                )
+            )
+            return players.mapIndexed { index, player ->
+                player to playerFlows[index].receive<PlayerSideResponseAccumulator>().unwrap { it }
+            }.toMap()
+        }
+    }
+
+    private class SendBackPlayerSideResponseAccumulatorFlow(otherPartySession: FlowSession) :
+        PlayerSideResponseAccumulatorFlow(
+            otherPartySession,
+            PlayerSideResponseAccumulator(),
+            { request -> PlayerResponseCollectingPreparedFlow(request) }) {
+
+        @Suspendable
+        override fun call() = super.call()
+            .also {
+                otherPartySession.send(it)
+            }
+    }
+
+    private class PlayerResponseCollectingPreparedFlow(
+        request: CallOrRaiseRequest,
+        private var index: Int = 0) :
+        PlayerResponseCollectingFlow(request) {
+        override fun call(): ActionRequest {
+            val me = serviceHub.myInfo.legalIdentities.first()
+            val desiredAction = responderActions[me]!![index]
+            return ActionRequest(
+                id = 0,
+                player = me.name,
+                cards = request.yourCards.map { it.card },
+                youBet = request.yourWager,
+                lastRaise = request.lastRaise,
+                playerAction = desiredAction.playerAction,
+                addAmount = desiredAction.raiseBy
+            ).also {
+                index++
+            }
+        }
+    }
 
     @Before
     fun setup() {
@@ -62,9 +133,10 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
 
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         listOf(minterNode, dealerNode, player1Node, player2Node, player3Node).forEach {
-            it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
-            it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
-            it.registerInitiatedFlow(ControlledPlayerSideResponseAccumulatorFlow.RemoteControlledResponder::class.java)
+            it.registerInitiatedFlow(
+                Initiator::class.java,
+                SendBackPlayerSideResponseAccumulatorFlow::class.java
+            )
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3), 100, 1)
         val mintFuture = minterNode.startFlow(mintFlow)
@@ -87,7 +159,12 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
     fun `Can receive fold responses accumulated`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = ControlledPlayerSideResponseAccumulatorFlow.Initiator(
+        responderActions = mapOf(
+            player3 to listOf(DesiredAction(PlayerAction.Fold)),
+            player1 to listOf(DesiredAction(PlayerAction.Fold)),
+            player2 to listOf()
+        )
+        val flow = Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
@@ -99,11 +176,6 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
                 newTransactions = setOf(),
                 lastRaiseIndex = 1,
                 playerCountSinceLastRaise = 0
-            ),
-            responderActions = mapOf(
-                player3 to listOf(DesiredAction(PlayerAction.Fold)),
-                player1 to listOf(DesiredAction(PlayerAction.Fold)),
-                player2 to listOf()
             )
         )
         val future = dealerNode.startFlow(flow)
@@ -119,7 +191,12 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
     fun `Can receive call responses accumulated`() {
         val players = listOf(player1, player2, player3)
         val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val flow = ControlledPlayerSideResponseAccumulatorFlow.Initiator(
+        responderActions = mapOf(
+            player3 to listOf(DesiredAction(PlayerAction.Call)),
+            player1 to listOf(DesiredAction(PlayerAction.Call)),
+            player2 to listOf(DesiredAction(PlayerAction.Call))
+        )
+        val flow = Initiator(
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
@@ -131,11 +208,6 @@ class ControlledPlayerSideResponseAccumulatorFlowTest {
                 newTransactions = setOf(),
                 lastRaiseIndex = 1,
                 playerCountSinceLastRaise = 0
-            ),
-            responderActions = mapOf(
-                player3 to listOf(DesiredAction(PlayerAction.Call)),
-                player1 to listOf(DesiredAction(PlayerAction.Call)),
-                player2 to listOf(DesiredAction(PlayerAction.Call))
             )
         )
         val future = dealerNode.startFlow(flow)
