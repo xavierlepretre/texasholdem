@@ -9,6 +9,7 @@ import org.cordacodeclub.bluff.contract.GameContract
 
 @BelongsToContract(GameContract::class)
 data class GameState(
+    val players: List<ActivePlayer>,
     // We anonymise cards like that. The list is 52 long.
     val hashedCards: List<SecureHash>,
     // At some point the cards that can be disclosed will replace the nulls. The list is 52 long.

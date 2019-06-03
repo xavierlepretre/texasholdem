@@ -36,8 +36,10 @@ object CreateGameFlow {
      * @param blindBetId the hash of the transaction that ran the blind bets
      * @param previousRoundId the hash of the transaction from the previous betting round
      */
-    class GameCreator(private val players: List<Party>, private val blindBetId: SecureHash, private val previousRoundId: SecureHash?) :
-        FlowLogic<SignedTransaction>() {
+    class GameCreator(
+        private val previousRoundId: SecureHash
+    ) :
+        FlowLogic<SignedTransaction?>() {
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each

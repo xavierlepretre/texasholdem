@@ -120,18 +120,17 @@ class BluffApi(private val rpcOps: CordaRPCOps) {
     @Path("create-game")
     fun createGame(
             @QueryParam("players") players: List<String>,
-            @QueryParam("lastRaise") blindBetId: SecureHash,
-            @QueryParam("lastRound") previousRoundId: SecureHash? = null
+            @QueryParam("lastRound") previousRoundId: SecureHash
             ): Response {
         if (players == null) {
             return Response.status(BAD_REQUEST).entity("Query parameter 'players' missing or has wrong format.\n").build()
         }
-        if (blindBetId == null) {
-            return Response.status(BAD_REQUEST).entity("Query parameter 'blindBetId' missing or has wrong format.\n").build()
+        if (previousRoundId == null) {
+            return Response.status(BAD_REQUEST).entity("Query parameter 'previousRoundId' missing or has wrong format.\n").build()
         }
         return try{
             val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
-            val signedTransaction = rpcOps.startFlow(CreateGameFlow::GameCreator, playerParties, blindBetId, previousRoundId)
+            val signedTransaction = rpcOps.startFlow(CreateGameFlow::GameCreator, previousRoundId)
                     .returnValue.getOrThrow()
             Response.ok(signedTransaction).build()
         } catch (ex: Throwable) {

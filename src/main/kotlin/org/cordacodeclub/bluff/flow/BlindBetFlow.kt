@@ -19,6 +19,7 @@ import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
@@ -226,6 +227,7 @@ object BlindBetFlow {
             )
             txBuilder.addOutputState(
                 GameState(
+                    ActivePlayer.from(players),
                     // At this stage, we are hiding all cards
                     deckInfo.cards.map { it.hash },
                     deckInfo.cards.map { null },
