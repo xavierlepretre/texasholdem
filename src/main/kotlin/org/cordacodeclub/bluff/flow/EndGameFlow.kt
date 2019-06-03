@@ -17,7 +17,6 @@ import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.dealer.getLeaves
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
-import org.cordacodeclub.bluff.player.PlayerResponderPoller
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.bluff.state.TokenState
@@ -30,13 +29,13 @@ object EndGameFlow {
 
     @CordaSerializable
     class HandResponse(
-            val states: PlayerHandState
+        val states: PlayerHandState
     )
 
     @CordaSerializable
     class HandAccumulator(
-            val request: HandRequest,
-            val states: List<PlayerHandState>
+        val request: HandRequest,
+        val states: List<PlayerHandState>
     )
 
     @InitiatingFlow
@@ -49,8 +48,8 @@ object EndGameFlow {
      */
 
     class Initiator(
-            private val players: List<Party>,
-            private val gameId: SecureHash
+        private val players: List<Party>,
+        private val gameId: SecureHash
     ) : FlowLogic<SignedTransaction>() {
 
         /**
@@ -69,20 +68,20 @@ object EndGameFlow {
             }
 
             object FINALISING_TRANSACTION :
-                    ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
+                ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
                 override fun childProgressTracker() = FinalityFlow.tracker()
             }
         }
 
         private fun tracker() = ProgressTracker(
-                GET_STATES,
-                COLLECTING_HAND_STATES,
-                REVEAL_HANDS,
-                GENERATING_TRANSACTION,
-                VERIFYING_TRANSACTION,
-                SIGNING_TRANSACTION,
-                GATHERING_SIGS,
-                FINALISING_TRANSACTION
+            GET_STATES,
+            COLLECTING_HAND_STATES,
+            REVEAL_HANDS,
+            GENERATING_TRANSACTION,
+            VERIFYING_TRANSACTION,
+            SIGNING_TRANSACTION,
+            GATHERING_SIGS,
+            FINALISING_TRANSACTION
         )
 
         override val progressTracker = tracker()
@@ -105,18 +104,20 @@ object EndGameFlow {
             progressTracker.currentStep = COLLECTING_HAND_STATES
             // TODO add some requirement checks
             val accumulator = (0 until players.size)
-                    .fold(
-                            HandAccumulator(
-                                    request = HandRequest(cardDeckInfo = deckInfo),
-                                    states = listOf())
-                    ) { accumulator, playerIndex ->
-                        val response = allFlows[playerIndex]
-                                .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
-                        val receivedStates = response.states
-                        HandAccumulator(
-                                request = HandRequest(cardDeckInfo = deckInfo),
-                                states = accumulator.states.plusElement(receivedStates))
-                    }
+                .fold(
+                    HandAccumulator(
+                        request = HandRequest(cardDeckInfo = deckInfo),
+                        states = listOf()
+                    )
+                ) { accumulator, playerIndex ->
+                    val response = allFlows[playerIndex]
+                        .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
+                    val receivedStates = response.states
+                    HandAccumulator(
+                        request = HandRequest(cardDeckInfo = deckInfo),
+                        states = accumulator.states.plusElement(receivedStates)
+                    )
+                }
 
             progressTracker.currentStep = REVEAL_HANDS
             //Collect hands, assemble deck, compare hashes
@@ -143,8 +144,8 @@ object EndGameFlow {
             val txBuilder = TransactionBuilder(notary = notary)
 
             txBuilder.addCommand(Command(
-                    WinningHandContract.Commands.Compare(),
-                    players.map { it.owningKey }
+                WinningHandContract.Commands.Compare(),
+                players.map { it.owningKey }
             ))
 
             // TODO needs to be stateAndRef
@@ -160,11 +161,11 @@ object EndGameFlow {
 
             progressTracker.currentStep = FINALISING_TRANSACTION
             return subFlow(
-                    FinalityFlow(
-                            signedTx,
-                            players.map { initiateFlow(it) },
-                            FINALISING_TRANSACTION.childProgressTracker()
-                    )
+                FinalityFlow(
+                    signedTx,
+                    players.map { initiateFlow(it) },
+                    FINALISING_TRANSACTION.childProgressTracker()
+                )
             )
         }
     }
@@ -182,9 +183,9 @@ object EndGameFlow {
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 
             fun tracker() = ProgressTracker(
-                    RECEIVING_REQUEST_FOR_STATE,
-                    SENDING_HAND_STATE,
-                    RECEIVING_FINALISED_TRANSACTION
+                RECEIVING_REQUEST_FOR_STATE,
+                SENDING_HAND_STATE,
+                RECEIVING_FINALISED_TRANSACTION
             )
         }
 
@@ -199,7 +200,6 @@ object EndGameFlow {
 
             // TODO incorporate merkle tree hasshes for correct card verification
             val playerCardService = serviceHub.cordaService(PlayerDatabaseService::class.java)
-            val userResponder = PlayerResponderPoller(me, playerCardService)
             val latestPlayerAction = playerCardService.getPlayerAction(me.name.toString())
 
             val gameCards = request.cardDeckInfo.cards
