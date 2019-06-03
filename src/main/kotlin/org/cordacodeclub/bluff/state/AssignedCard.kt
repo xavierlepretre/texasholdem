@@ -1,7 +1,5 @@
 package org.cordacodeclub.bluff.state
 
-import net.corda.core.contracts.requireThat
-import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.serialize
@@ -14,9 +12,7 @@ data class AssignedCard(
     val owner: CordaX500Name
 ) {
 
-    val hash: SecureHash by lazy {
-        serialize().hash
-    }
+    val hash by lazy { serialize().hash }
 
     constructor(card: String, salt: ByteArray, owner: String) : this(
         card = Card.valueOf(card),
@@ -25,13 +21,26 @@ data class AssignedCard(
     )
 
     init {
-        requireThat {
-            "salt must not be more than $SALT_LENGTH characters long" using (salt.size <= SALT_LENGTH)
-        }
+        require(salt.size == SALT_LENGTH) { "salt must be exactly $SALT_LENGTH characters long" }
     }
 
     companion object {
         const val SALT_LENGTH = 50
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as AssignedCard
+
+        if (hash != other.hash) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return hash.hashCode()
     }
 }
 
