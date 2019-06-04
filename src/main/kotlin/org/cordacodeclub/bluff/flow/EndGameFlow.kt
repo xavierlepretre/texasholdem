@@ -2,6 +2,7 @@ package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
+import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.MerkleTree
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
@@ -17,6 +18,7 @@ import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.dealer.getLeaves
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
+import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.bluff.state.TokenState
@@ -25,7 +27,9 @@ import org.cordacodeclub.bluff.state.TokenState
 object EndGameFlow {
 
     @CordaSerializable
-    class HandRequest(val cardDeckInfo: CardDeckInfo)
+    class HandRequest(
+            val cardDeckInfo: CardDeckInfo,
+            val players: List<ActivePlayer>)
 
     @CordaSerializable
     class HandResponse(
@@ -106,7 +110,7 @@ object EndGameFlow {
             val accumulator = (0 until players.size)
                 .fold(
                     HandAccumulator(
-                        request = HandRequest(cardDeckInfo = deckInfo),
+                        request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players),
                         states = listOf()
                     )
                 ) { accumulator, playerIndex ->
@@ -114,7 +118,7 @@ object EndGameFlow {
                         .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
                     val receivedStates = response.states
                     HandAccumulator(
-                        request = HandRequest(cardDeckInfo = deckInfo),
+                        request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players),
                         states = accumulator.states.plusElement(receivedStates)
                     )
                 }
@@ -198,16 +202,29 @@ object EndGameFlow {
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
 
-            // TODO incorporate merkle tree hasshes for correct card verification
+            // TODO incorporate merkle tree hashes for correct card verification
+            val deck = request.cardDeckInfo
+            val gameCards = deck.cards.map { it.card }
+            val myPosition = request.players.indexOf(request.players.find { it.party == me })
+            val myCards = deck.getPlayerCards(myPosition)
+            val communityCards = deck.getCommunityCards(request.players.size)
+            val myBestCards = myCards + communityCards.shuffled().take(3)
+
             val playerCardService = serviceHub.cordaService(PlayerDatabaseService::class.java)
+            val myStoredCards = playerCardService.getPlayerCards(me.name.toString())
+
+            val cardIndexes = myBestCards.map { deck.cards.indexOf(it) }
+
+            requireThat {
+                "Cards should be part of the deck" using (gameCards.containsAll(myStoredCards))
+                "Cards must be identical" using ((myCards + communityCards).sortedBy { it.card.rank } == myStoredCards.sortedBy { it!!.rank })
+                "Card hashes must be in the Merkle root" using (deck.hashedCards.containsAll(deck.cards.map {  }))
+            }
+
+
             val latestPlayerAction = playerCardService.getPlayerAction(me.name.toString())
 
-            val gameCards = request.cardDeckInfo.cards
-            val myCards = playerCardService.getPlayerCards(me.name.toString())
-            val cardIndexes = myCards.map { card -> gameCards.map { it.card }.indexOf(card) }
-
             // TODO proper request for hand
-            // TODO shuffle community cards -> convert into interface
             val playerHandState = PlayerHandState(cardIndexes.shuffled().take(5), me)
 
             progressTracker.currentStep = SENDING_HAND_STATE

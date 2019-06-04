@@ -100,6 +100,7 @@ class PlayerSideResponseAccumulatorFlowTest {
                 id = 0,
                 player = me.name,
                 cards = request.yourCards.map { it.card },
+                    cardHashes = request.cardHashes,
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
                 playerAction = desiredAction.playerAction,

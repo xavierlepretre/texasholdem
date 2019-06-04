@@ -25,16 +25,17 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
      */
     fun addActionRequest(actionRequest: ActionRequest): Pair<Int, ActionRequest> {
         val query = "insert into $tableName " +
-                "(player, cards, youBet, lastRaise, playerAction, addAmount) " +
+                "(player, cards, cardHashes, youBet, lastRaise, playerAction, addAmount) " +
                 "values(?, ?, ?, ?, ?, ?);"
 
         val params = mapOf(
-            1 to actionRequest.player.toString(),
-            2 to toString(actionRequest.cards.asSequence()),
-            3 to actionRequest.youBet,
-            4 to actionRequest.lastRaise,
-            5 to "",
-            6 to 0
+                1 to actionRequest.player.toString(),
+                2 to toString(actionRequest.cards.asSequence()),
+                3 to actionRequest.cardHashes,
+                4 to actionRequest.youBet,
+                5 to actionRequest.lastRaise,
+                6 to "",
+                7 to 0
         )
 
         val rowCount = executeUpdate(query, params)
@@ -52,9 +53,9 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
         val query = "update $tableName set playerAction = ?, addAmount = ? where id = ?"
 
         val params = mapOf(
-            1 to action.name,
-            2 to addAmount,
-            3 to id
+                1 to action.name,
+                2 to addAmount,
+                3 to id
         )
 
         val rowCount = executeUpdate(query, params)
@@ -65,19 +66,20 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getActionRequest(id: Long): ActionRequest? {
-        val query = "select player, cards, youBet, " +
+        val query = "select player, cards, cardHashes, youBet, " +
                 "lastRaise, playerAction, addAmount from $tableName where id = ?"
 
         val params = mapOf(1 to id)
         val results = executeQuery(query, params) {
             ActionRequest(
-                id,
-                it.getString("player"),
-                it.getString("cards"),
-                it.getLong("youBet"),
-                it.getLong("lastRaise"),
-                it.getString("playerAction").let { if (it == "") null else PlayerAction.valueOf(it) },
-                it.getLong("addAmount")
+                    id,
+                    it.getString("player"),
+                    it.getString("cards"),
+                    it.getString("cardHashes"),
+                    it.getLong("youBet"),
+                    it.getLong("lastRaise"),
+                    it.getString("playerAction").let { if (it == "") null else PlayerAction.valueOf(it) },
+                    it.getLong("addAmount")
             )
         }
 
@@ -96,7 +98,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getPlayerCards(player: String): List<Card?> {
-        val query = "select player, cards, youBet, " +
+        val query = "select player, cards, cardHashes, youBet, " +
                 "lastRaise, action, addAmount from $tableName where player = ?"
 
         val params = mapOf(1 to player)
@@ -105,9 +107,10 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                     it.getLong("id"),
                     player,
                     it.getString("cards"),
+                    it.getString("cardHashes"),
                     it.getLong("youBet"),
                     it.getLong("lastRaise"),
-                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it)  },
+                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it) },
                     it.getLong("addAmount")
             ).cards
         }
@@ -119,7 +122,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getPlayerAction(player: String): ActionRequest? {
-        val query = "select player, cards, youBet, " +
+        val query = "select player, cards, cardHashes, youBet, " +
                 "lastRaise, action, addAmount from $tableName where player = ?"
 
         val params = mapOf(1 to player)
@@ -128,9 +131,10 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                     it.getLong("id"),
                     player,
                     it.getString("cards"),
+                    it.getString("cardHashes"),
                     it.getLong("youBet"),
                     it.getLong("lastRaise"),
-                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it)  },
+                    it.getString("action").let { if (it == "") null else PlayerAction.valueOf(it) },
                     it.getLong("addAmount")
             )
         }
@@ -142,18 +146,19 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     /**
      */
     fun getTopActionRequest(): ActionRequest? {
-        val query = "select id, player, cards, youBet, " +
+        val query = "select id, player, cards, cardHashes, youBet, " +
                 "lastRaise, playerAction, addAmount from $tableName limit 1"
 
         val results = executeQuery(query, emptyMap()) {
             ActionRequest(
-                it.getLong("id"),
-                it.getString("player"),
-                it.getString("cards"),
-                it.getLong("youBet"),
-                it.getLong("lastRaise"),
-                PlayerAction.valueOf(it.getString("playerAction")),
-                it.getLong("addAmount")
+                    it.getLong("id"),
+                    it.getString("player"),
+                    it.getString("cards"),
+                    it.getString("cardHashes"),
+                    it.getLong("youBet"),
+                    it.getLong("lastRaise"),
+                    PlayerAction.valueOf(it.getString("playerAction")),
+                    it.getLong("addAmount")
             )
         }
 
@@ -170,6 +175,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 id int not null auto_increment,
                 player varchar(64) not null,
                 cards varchar(22) not null,
+                cardHashes varchar(22) not null,
                 youBet int not null,
                 lastRaise int not null,
                 playerAction varchar(10) not null,
