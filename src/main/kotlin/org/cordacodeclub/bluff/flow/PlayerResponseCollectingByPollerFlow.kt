@@ -36,13 +36,15 @@ class PlayerResponseCollectingByPollerFlow(
     private fun tracker() = ProgressTracker(SAVING, WAITING, ANSWERING)
 
     override val progressTracker = tracker()
+    var insertedRequest: Long = -1
+        private set
 
     @Suspendable
     override fun call(): ActionRequest {
         val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
         val me = serviceHub.myInfo.legalIdentities.first()
         progressTracker.currentStep = SAVING
-        val insertedRequest = playerDatabaseService.addActionRequest(
+        insertedRequest = playerDatabaseService.addActionRequest(
             ActionRequest(
                 id = 0L,
                 player = me.name,
