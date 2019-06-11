@@ -1,7 +1,7 @@
 package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
-import net.corda.core.flows.FlowLogic
+import net.corda.core.crypto.MerkleTree
 import net.corda.core.identity.Party
 import net.corda.core.utilities.ProgressTracker
 import org.cordacodeclub.bluff.player.ActionRequest
@@ -47,7 +47,7 @@ class PlayerResponseCollectingByPollerFlow(
                 id = 0L,
                 player = me.name,
                 cards = request.yourCards.map { it.card },
-                cardHashes = request.cardHashes,
+                cardHashes = MerkleTree.getMerkleTree(request.cardHashes).hash,
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
                 playerAction = null,

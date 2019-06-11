@@ -27,8 +27,6 @@ class PlayerActionResponseFlow(
     companion object {
         object SAVING : ProgressTracker.Step("Saving action.")
         object DONE : ProgressTracker.Step("Returning.")
-
-        val TYPICAL_DURATION = 5000L
     }
 
     private fun tracker() = ProgressTracker(SAVING, DONE)
@@ -41,11 +39,10 @@ class PlayerActionResponseFlow(
     @Suspendable
     override fun call(): Int {
         val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
-        val me = serviceHub.myInfo.legalIdentities.first()
         progressTracker.currentStep = SAVING
         return playerDatabaseService.updateActionRequest(requestId, action, addAmount)
             .also {
-                require(it == 1) { "The request should have been entered" }
+                require(it == 1) { "The request should have been entered beforehand" }
                 progressTracker.currentStep = DONE
             }
     }

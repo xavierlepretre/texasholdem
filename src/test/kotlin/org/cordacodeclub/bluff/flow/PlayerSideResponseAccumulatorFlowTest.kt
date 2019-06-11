@@ -2,6 +2,7 @@ package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.StateAndRef
+import net.corda.core.crypto.MerkleTree
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.FlowSession
 import net.corda.core.flows.InitiatingFlow
@@ -91,7 +92,8 @@ class PlayerSideResponseAccumulatorFlowTest {
 
     private class PlayerResponseCollectingPreparedFlow(
         request: CallOrRaiseRequest,
-        private var index: Int = 0) :
+        private var index: Int = 0
+    ) :
         PlayerResponseCollectingFlow(request) {
         override fun call(): ActionRequest {
             val me = serviceHub.myInfo.legalIdentities.first()
@@ -100,7 +102,7 @@ class PlayerSideResponseAccumulatorFlowTest {
                 id = 0,
                 player = me.name,
                 cards = request.yourCards.map { it.card },
-                    cardHashes = request.cardHashes,
+                cardHashes = MerkleTree.getMerkleTree(request.cardHashes).hash,
                 youBet = request.yourWager,
                 lastRaise = request.lastRaise,
                 playerAction = desiredAction.playerAction,
