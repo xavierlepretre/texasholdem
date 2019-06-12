@@ -148,7 +148,7 @@ class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) 
     }
 
     fun getCardDeck(rootHash: SecureHash): CardDeckInfo? {
-        val query = "select index, card, hash salt, owner from $tableName where rootHash = ?"
+        val query = "select index, card, salt, owner from $tableName where rootHash = ? order by index asc"
 
         val params = mapOf(1 to rootHash.bytes)
         val cards = executeQuery(query, params) {

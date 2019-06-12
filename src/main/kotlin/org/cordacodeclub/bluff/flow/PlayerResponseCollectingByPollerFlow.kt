@@ -44,7 +44,7 @@ class PlayerResponseCollectingByPollerFlow(
         val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
         val me = serviceHub.myInfo.legalIdentities.first()
         progressTracker.currentStep = SAVING
-        insertedRequest = playerDatabaseService.addActionRequest(
+        insertedRequest = try { playerDatabaseService.addActionRequest(
             ActionRequest(
                 id = 0L,
                 player = me.name,
@@ -55,7 +55,10 @@ class PlayerResponseCollectingByPollerFlow(
                 playerAction = null,
                 addAmount = 0L
             )
-        ).also {
+        ) } catch(e : Exception) {
+            println(e)
+            throw e
+        }.also {
             require(it.first == 1) { "The request should have been entered" }
         }.second.id
 
@@ -67,7 +70,10 @@ class PlayerResponseCollectingByPollerFlow(
         progressTracker.currentStep = ANSWERING
         return playerDatabaseService.getActionRequest(insertedRequest)!!
             .also {
-                playerDatabaseService.deleteActionRequest(it.id)
+                try { playerDatabaseService.deleteActionRequest(it.id) } catch(e: Exception) {
+                    println(e)
+                    throw e
+                }
             }
     }
 }

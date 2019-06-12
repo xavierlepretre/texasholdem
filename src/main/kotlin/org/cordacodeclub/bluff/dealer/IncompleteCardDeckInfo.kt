@@ -14,6 +14,11 @@ class IncompleteCardDeckInfo(
         cards.all { it != null}
     }
 
+    constructor(cardDeckInfo: CardDeckInfo) : this(
+        cardDeckInfo.hashedCards,
+        cardDeckInfo.cards.map { it }
+    )
+
     init {
         require(hashedCards.size == cards.size) { "The 2 lists must have the same size" }
         require(cards.foldIndexed(true) { index, all, card ->
