@@ -1,5 +1,9 @@
 package org.cordacodeclub.bluff.flow
 
+import co.paralleluniverse.fibers.Suspendable
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.utilities.getOrThrow
@@ -21,6 +25,24 @@ class SlowBounceFlowTest {
     private lateinit var minter: Party
     private lateinit var player1: Party
     private lateinit var player2: Party
+
+    @InitiatingFlow
+    class ReBounceInitiator(val bouncer: Party, val duration: Long) : FlowLogic<Unit>() {
+
+        @Suspendable
+        override fun call() {
+            initiateFlow(bouncer).sendAndReceive<Unit>(duration)
+        }
+    }
+
+    class ReBounceResponder(val otherPartySession: FlowSession) : FlowLogic<Unit>() {
+
+        @Suspendable
+        override fun call() {
+            subFlow(SlowBounceFlow.Initiator(otherPartySession.counterparty, 2000L))
+            subFlow(SlowBounceFlow.Responder(otherPartySession))
+        }
+    }
 
     @Before
     fun setup() {
@@ -70,5 +92,18 @@ class SlowBounceFlowTest {
 
         mintFuture.getOrThrow()
         bounceFuture.getOrThrow()
+    }
+
+    @Test
+    fun `It is possible for the one bounced to initiate a bounce in return`() {
+        val obs = player2Node.registerInitiatedFlow(
+            ReBounceInitiator::class.java,
+            ReBounceResponder::class.java
+        ).cache()
+        val bounceFlow = ReBounceInitiator(player2, 2000L)
+        val bounceFuture = player1Node.startFlow(bounceFlow)
+        network.runNetwork()
+        bounceFuture.getOrThrow()
+        obs.subscribe { println(it) }
     }
 }
