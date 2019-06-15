@@ -61,9 +61,7 @@ class PlayerSideResponseAccumulatorFlowTest {
 
         @Suspendable
         override fun call(): Map<Party, PlayerSideResponseAccumulator> {
-            val playerFlows = players.map { player ->
-                initiateFlow(player)
-            }
+            val playerFlows = players.map { initiateFlow(it) }
             val accumulated = subFlow(
                 DealerRoundAccumulatorFlow(
                     deckInfo = deckInfo,
@@ -84,17 +82,17 @@ class PlayerSideResponseAccumulatorFlowTest {
             { request -> PlayerResponseCollectingPreparedFlow(request) }) {
 
         @Suspendable
-        override fun call() = super.call()
-            .also {
-                otherPartySession.send(it)
-            }
+        override fun call() = super.call().also {
+            otherPartySession.send(it)
+        }
     }
 
     private class PlayerResponseCollectingPreparedFlow(
         request: CallOrRaiseRequest,
         private var index: Int = 0
-    ) :
-        PlayerResponseCollectingFlow(request) {
+    ) : PlayerResponseCollectingFlow(request) {
+
+        @Suspendable
         override fun call(): ActionRequest {
             val me = serviceHub.myInfo.legalIdentities.first()
             val desiredAction = responderActions[me]!![index]
