@@ -14,7 +14,6 @@ import org.cordacodeclub.grom356.CardList.Companion.toString
  * @param services The node's service hub.
  */
 @CordaService
-@CordaSerializable
 class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     init {
         setUpStorage()
