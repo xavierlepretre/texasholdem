@@ -2,6 +2,8 @@ package org.cordacodeclub.bluff.player
 
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
+import net.corda.core.serialization.CordaSerializable
+import net.corda.core.serialization.CordaSerializationTransformRenames
 import org.cordacodeclub.bluff.db.DatabaseService
 import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardList.Companion.toString
@@ -12,6 +14,7 @@ import org.cordacodeclub.grom356.CardList.Companion.toString
  * @param services The node's service hub.
  */
 @CordaService
+@CordaSerializable
 class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
     init {
         setUpStorage()

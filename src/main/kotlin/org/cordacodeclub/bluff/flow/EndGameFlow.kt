@@ -30,7 +30,9 @@ object EndGameFlow {
     @CordaSerializable
     class HandRequest(
             val cardDeckInfo: CardDeckInfo,
-            val players: List<ActivePlayer>)
+            val players: List<ActivePlayer>,
+            val playerDatabaseService: PlayerDatabaseService?
+            )
 
     @CordaSerializable
     class HandResponse(
@@ -43,8 +45,7 @@ object EndGameFlow {
             val states: List<PlayerHandState>
     )
 
-    @InitiatingFlow
-    @StartableByRPC
+
     /**
      * This flow is startable by the dealer party.
      * And it has to be signed by the players and dealer.
@@ -52,9 +53,12 @@ object EndGameFlow {
      * @param gameId the hash of the transaction with the GameState
      */
 
+    @InitiatingFlow
+    @StartableByRPC
     class Initiator(
             private val players: List<Party>,
-            private val gameId: SecureHash
+            private val gameId: SecureHash,
+            private val playerDatabaseService: PlayerDatabaseService
     ) : FlowLogic<SignedTransaction>() {
 
         /**
@@ -113,7 +117,7 @@ object EndGameFlow {
             val accumulator = (0 until players.size)
                     .fold(
                             HandAccumulator(
-                                    request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players),
+                                    request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players, playerDatabaseService = playerDatabaseService),
                                     states = listOf()
                             )
                     ) { accumulator, playerIndex ->
@@ -121,7 +125,7 @@ object EndGameFlow {
                                 .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
                         val receivedStates = response.states
                         HandAccumulator(
-                                request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players),
+                                request = HandRequest(cardDeckInfo = deckInfo, players = gameState.players, playerDatabaseService = playerDatabaseService),
                                 states = accumulator.states.plusElement(receivedStates)
                         )
                     }
@@ -212,7 +216,7 @@ object EndGameFlow {
         }
 
         override val progressTracker: ProgressTracker = tracker()
-        open var playerDatabaseService: PlayerDatabaseService? = null
+        //open var playerDatabaseService: PlayerDatabaseService? = null
 
         @Suspendable
         override fun call(): SignedTransaction {
@@ -220,7 +224,7 @@ object EndGameFlow {
             val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
-            val playerCardService = playerDatabaseService ?: serviceHub.cordaService(PlayerDatabaseService::class.java)
+            val playerCardService = request.playerDatabaseService ?: serviceHub.cordaService(PlayerDatabaseService::class.java)
 
             // TODO incorporate merkle tree hashes for correct card verification
             //Game cards

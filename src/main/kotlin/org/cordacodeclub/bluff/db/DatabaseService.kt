@@ -2,6 +2,7 @@ package org.cordacodeclub.bluff.db
 
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
+import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.utilities.loggerFor
 import java.sql.PreparedStatement

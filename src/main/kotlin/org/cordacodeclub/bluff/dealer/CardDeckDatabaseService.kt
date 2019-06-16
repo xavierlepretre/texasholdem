@@ -3,6 +3,7 @@ package org.cordacodeclub.bluff.dealer
 import net.corda.core.crypto.SecureHash
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
+import net.corda.core.serialization.CordaSerializable
 import org.cordacodeclub.bluff.db.DatabaseService
 import org.cordacodeclub.bluff.state.AssignedCard
 
@@ -11,7 +12,6 @@ import org.cordacodeclub.bluff.state.AssignedCard
  * per game. Each deck is identified by its Merkle root hash.
  * @param services The node's service hub.
  */
-@CordaService
 class CardDeckDatabaseService(services: ServiceHub) : DatabaseService(services) {
     init {
         setUpStorage()
