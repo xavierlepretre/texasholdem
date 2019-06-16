@@ -21,7 +21,7 @@ data class AssignedCard(
     )
 
     init {
-        require(salt.size == SALT_LENGTH) { "salt must be exactly $SALT_LENGTH characters long" }
+        //require(salt.size == SALT_LENGTH) { "salt must be exactly $SALT_LENGTH characters long" }
     }
 
     companion object {
