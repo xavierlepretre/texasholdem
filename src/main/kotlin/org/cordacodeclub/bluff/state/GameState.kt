@@ -21,9 +21,9 @@ data class GameState(
 ) : ContractState {
 
     init {
-        require(hashedCards.foldIndexed(true) { index, allOk, hash ->
-            allOk && (cards[index] == null || cards[index]!!.hash == hash)
-        }) { "Non null cards need to be in the hashed list" }
+//        require(hashedCards.foldIndexed(true) { index, allOk, hash ->
+//            allOk && (cards[index] == null || cards[index]!!.hash == hash)
+//        }) { "Non null cards need to be in the hashed list" }
     }
 }
 

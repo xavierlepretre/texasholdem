@@ -20,16 +20,18 @@ class WinningHandContract : Contract {
 
     override fun verify(tx: LedgerTransaction) {
         val command = tx.commands.requireSingleCommand<Commands>()
-        val inputHands = tx.inputsOfType<PlayerHandState>()
+        //val inputHands = tx.inputsOfType<PlayerHandState>()
         val inputGameState = tx.inputsOfType<GameState>().single()
         val inputCards = inputGameState.cards
-        val outputHand = getPlayerHands(tx.outputsOfType<PlayerHandState>().single(), inputGameState.cards).first
-        val winningHand = winningHand(inputHands, inputGameState.cards)
+        val outputHandStates = tx.outputsOfType<PlayerHandState>()
+        val winningHand = winningHand(outputHandStates, inputGameState.cards)
+        val playerHandStates = (outputHandStates.map { it.owner }) - winningHand.second
+        //val outputHand = getPlayerHands(tx.outputsOfType<PlayerHandState>().single(), inputGameState.cards).first
 
         when (command.value) {
             is Commands.Compare ->
                 requireThat {
-                    inputHands.map {
+                    outputHandStates.map {
                         "There must be 5 cards for player ${it.owner}" using (it.cardIndexes.size == 5)
                         "The cards must belong to ${it.owner}, but found ${inputCards[it.cardIndexes.first()]!!.owner}" using
                                 // TODO account for missing cards of players who did not disclose
@@ -41,7 +43,7 @@ class WinningHandContract : Contract {
                     "There must be one output hand" using (true)
                     "The owner of the winning hands must be one of the players" using (tx.inputsOfType<PlayerHandState>()
                             .map { it.owner }.contains(winningHand.second))
-                    "The winning hand must be the same as the output hand" using (winningHand.first == outputHand)
+                    //"The winning hand must be the same as the output hand" using (winningHand.first == outputHand)
                 }
             else -> throw IllegalArgumentException("Unrecognised command $command")
         }

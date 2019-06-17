@@ -1,6 +1,5 @@
 package org.cordacodeclub.bluff.flow
 
-import com.nhaarman.mockito_kotlin.any
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
@@ -15,10 +14,8 @@ import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import com.nhaarman.mockito_kotlin.mock
-import com.nhaarman.mockito_kotlin.whenever
 import net.corda.core.flows.FlowSession
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
-import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
 
 /**
@@ -45,15 +42,6 @@ class EndGameFlowTest {
     private lateinit var mockCardDeckDatabaseService: CardDeckDatabaseService
     private lateinit var mockPlayerDatabaseService: PlayerDatabaseService
     private lateinit var flowSession: FlowSession
-
-    //@InitiatedBy(EndGameFlow.Initiator::class)
-//    private inner class CustomResponderFlow(otherPartySession: FlowSession) :
-//            EndGameFlow.Responder(otherPartySession) {
-//
-//        override var playerDatabaseService: PlayerDatabaseService? = mockPlayerDatabaseService
-//        @Suspendable
-//        override fun call() = super.call().also { otherPartySession.send(it) }
-//    }
 
     @Before
     fun setup() {
@@ -105,10 +93,6 @@ class EndGameFlowTest {
         network.runNetwork()
         mintTx = future.getOrThrow()
 
-        val cardDeckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
-        val cards = cardDeckInfo.cards.shuffled().take(5).map { it.card }
-
-        whenever(mockPlayerDatabaseService.getPlayerCards(any())).thenReturn(cards)
     }
 
     @After
@@ -125,9 +109,7 @@ class EndGameFlowTest {
         network.runNetwork()
         val signedTx = blindBetFuture.getOrThrow()
 
-        val playerDatabaseService: PlayerDatabaseService? = mockPlayerDatabaseService
-
-        val endGameFlow = EndGameFlow.Initiator(players, signedTx.tx.id, playerDatabaseService!!)
+        val endGameFlow = EndGameFlow.Initiator(players, signedTx.tx.id)
         val endGameFuture = dealerNode.startFlow(endGameFlow)
         network.runNetwork()
 
