@@ -7,6 +7,7 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
 import org.cordacodeclub.bluff.state.AssignedCard
+import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.grom356.Card
@@ -20,29 +21,26 @@ class WinningHandContract : Contract {
 
     override fun verify(tx: LedgerTransaction) {
         val command = tx.commands.requireSingleCommand<Commands>()
-        //val inputHands = tx.inputsOfType<PlayerHandState>()
         val inputGameState = tx.inputsOfType<GameState>().single()
-        val inputCards = inputGameState.cards
+
+        val outputGameState = tx.outputsOfType<GameState>().single()
+        val outputGameCards = outputGameState.cards
         val outputHandStates = tx.outputsOfType<PlayerHandState>()
-        val winningHand = winningHand(outputHandStates, inputGameState.cards)
-        val playerHandStates = (outputHandStates.map { it.owner }) - winningHand.second
-        //val outputHand = getPlayerHands(tx.outputsOfType<PlayerHandState>().single(), inputGameState.cards).first
+
+        val winner = outputHandStates.sortedBy { it.place }.first()
+        val winningHand = winningHand(outputHandStates, outputGameCards)
 
         when (command.value) {
             is Commands.Compare ->
                 requireThat {
-                    outputHandStates.map {
-                        "There must be 5 cards for player ${it.owner}" using (it.cardIndexes.size == 5)
-                        "The cards must belong to ${it.owner}, but found ${inputCards[it.cardIndexes.first()]!!.owner}" using
-                                // TODO account for missing cards of players who did not disclose
-                                (inputCards[it.cardIndexes.first()]!!.owner == it.owner.name)
-                    }
-                    "There must be 52 cards in a game" using (inputGameState.cards.size == 52)
+                    outputHandStates.map { "There must be 5 cards for player ${it.owner}" using (it.cardIndexes.size == 5) }
+                    //"There must be 52 cards in a game" using (inputGameState.cards.size == 52)
                     "There must be one input game" using (tx.inputsOfType<GameState>().size == 1)
-                    "There must be no output gme" using (tx.outputsOfType<GameState>().isEmpty())
-                    "There must be one output hand" using (true)
-                    "The owner of the winning hands must be one of the players" using (tx.inputsOfType<PlayerHandState>()
-                            .map { it.owner }.contains(winningHand.second))
+                    "There must be one output game" using (tx.outputsOfType<GameState>().size == 1)
+                    "The output game must be in ${BettingRound.END}" using (outputGameState.bettingRound == BettingRound.END)
+                    "The winner should be ${winner.owner}" using (winner.owner === winningHand.second)
+
+                    "The owner of the winning hand must be one of the players" using (inputGameState.players.map { it.party }.contains(winningHand.second))
                     //"The winning hand must be the same as the output hand" using (winningHand.first == outputHand)
                 }
             else -> throw IllegalArgumentException("Unrecognised command $command")

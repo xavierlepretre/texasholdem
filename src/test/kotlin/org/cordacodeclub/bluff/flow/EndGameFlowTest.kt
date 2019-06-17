@@ -84,6 +84,7 @@ class EndGameFlowTest {
         participantNodes.forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
             it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
+            it.registerInitiatedFlow(EndGameFlow.Responder::class.java)
 
         }
         val mintFlow = MintTokenFlow.Minter(players, 100, 1)
