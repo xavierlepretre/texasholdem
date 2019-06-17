@@ -193,7 +193,7 @@ object EndGameFlow {
     }
 
     @InitiatedBy(Initiator::class)
-    class Responder(val otherPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
+    open class Responder(val otherPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
 
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -212,6 +212,7 @@ object EndGameFlow {
         }
 
         override val progressTracker: ProgressTracker = tracker()
+        open var playerDatabaseService: PlayerDatabaseService? = null
 
         @Suspendable
         override fun call(): SignedTransaction {
@@ -219,7 +220,7 @@ object EndGameFlow {
             val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
-            val playerCardService = serviceHub.cordaService(PlayerDatabaseService::class.java)
+            val playerCardService = playerDatabaseService ?: serviceHub.cordaService(PlayerDatabaseService::class.java)
 
             // TODO incorporate merkle tree hashes for correct card verification
             //Game cards

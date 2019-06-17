@@ -1,7 +1,10 @@
 package org.cordacodeclub.bluff.flow
 
+import co.paralleluniverse.fibers.Suspendable
+import com.nhaarman.mockito_kotlin.any
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
+import net.corda.core.node.ServiceHub
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.core.singleIdentity
@@ -12,6 +15,16 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.nhaarman.mockito_kotlin.mock
+import com.nhaarman.mockito_kotlin.whenever
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.InitiatedBy
+import net.corda.testing.node.MockServices
+import net.corda.testing.node.internal.getCallerPackage
+import net.corda.testing.node.makeTestIdentityService
+import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
+import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.player.PlayerDatabaseService
 
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
@@ -31,6 +44,18 @@ class EndGameFlowTest {
     private lateinit var player3: Party
     private lateinit var player4: Party
     private lateinit var mintTx: SignedTransaction
+    private lateinit var mockServiceHub: ServiceHub
+    private lateinit var mockCardDeckDatabaseService: CardDeckDatabaseService
+    private lateinit var mockPlayerDatabaseService: PlayerDatabaseService
+
+    @InitiatedBy(EndGameFlow.Initiator::class)
+    private inner class CustomResponderFlow(otherPartySession: FlowSession) :
+            EndGameFlow.Responder(otherPartySession) {
+        override var playerDatabaseService: PlayerDatabaseService? = mockPlayerDatabaseService
+
+        @Suspendable
+        override fun call() = super.call().also { otherPartySession.send(it) }
+    }
 
     @Before
     fun setup() {
@@ -39,7 +64,9 @@ class EndGameFlowTest {
                         "org.cordacodeclub.bluff.contract",
                         "org.cordacodeclub.bluff.dealer",
                         "org.cordacodeclub.bluff.flow",
-                        "org.cordacodeclub.bluff.state"
+                        "org.cordacodeclub.bluff.state",
+                        "org.cordacodeclub.bluff.player",
+                        "org.cordacodeclub.bluff.flow"
                 )
         )
         minterNode = network.createPartyNode(CordaX500Name.parse("O=Minter, L=London, C=GB"))
@@ -48,6 +75,7 @@ class EndGameFlowTest {
         player2Node = network.createPartyNode(CordaX500Name.parse("O=Player2, L=London, C=GB"))
         player3Node = network.createPartyNode(CordaX500Name.parse("O=Player3, L=London, C=GB"))
         player4Node = network.createPartyNode(CordaX500Name.parse("O=Player4, L=London, C=GB"))
+
         minter = minterNode.info.singleIdentity()
         dealer = dealerNode.info.singleIdentity()
         player1 = player1Node.info.singleIdentity()
@@ -59,12 +87,29 @@ class EndGameFlowTest {
         listOf(minterNode, player1Node, player2Node, player3Node, player4Node).forEach {
             it.registerInitiatedFlow(MintTokenFlow.Recipient::class.java)
             it.registerInitiatedFlow(BlindBetFlow.CollectorAndSigner::class.java)
+            it.registerInitiatedFlow(
+                    EndGameFlow.Initiator::class.java,
+                    CustomResponderFlow::class.java
+            )
         }
         val mintFlow = MintTokenFlow.Minter(listOf(player1, player2, player3, player4), 100, 1)
         val future = minterNode.startFlow(mintFlow)
+
         network.runNetwork()
         mintTx = future.getOrThrow()
+
+        //mockCardDeckDatabaseService = mock()
+        mockPlayerDatabaseService = mock()
+
+        val players = listOf(player1, player2, player3, player4)
+        val cardDeckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
+        val cards = cardDeckInfo.cards.shuffled().take(5).map { it.card }
+
+        //whenever(mockCardDeckDatabaseService.getCardDeck(any())).thenReturn(cardDeckInfo)
+        //whenever(mockServiceHub.cordaService(mockPlayerDatabaseService::class.java)).thenReturn(mockPlayerDatabaseService)
+        whenever(mockPlayerDatabaseService.getPlayerCards(any())).thenReturn(cards)
     }
+
     @After
     fun tearDown() {
         network.stopNodes()
@@ -72,14 +117,14 @@ class EndGameFlowTest {
 
     @Test
     fun `Can run flow`() {
+        val players = listOf(player1, player2, player3, player4)
 
-        val blindBetflow = BlindBetFlow.Initiator(
-                listOf(player1, player2, player3, player4), minter,4)
-        val blindBetFuture = dealerNode.startFlow(blindBetflow)
+        val blindBetFlow = BlindBetFlow.Initiator(players, minter, 4)
+        val blindBetFuture = dealerNode.startFlow(blindBetFlow)
         network.runNetwork()
         val signedTx = blindBetFuture.getOrThrow()
 
-        val endGameFlow = EndGameFlow.Initiator(listOf(player1, player2, player3, player4), signedTx.tx.id)
+        val endGameFlow = EndGameFlow.Initiator(players, signedTx.tx.id)
         val endGameFuture = dealerNode.startFlow(endGameFlow)
         network.runNetwork()
 
