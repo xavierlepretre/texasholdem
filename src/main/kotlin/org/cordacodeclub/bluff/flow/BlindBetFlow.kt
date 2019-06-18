@@ -2,22 +2,27 @@ package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Command
+import net.corda.core.contracts.Requirements.using
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
-import net.corda.core.node.services.Vault
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
-import net.corda.core.node.services.vault.builder
+import net.corda.core.node.ServiceHub
+import net.corda.core.node.StatesToRecord
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
+import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
-import org.cordacodeclub.bluff.state.TokenSchemaV1
+import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
+import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.dealer.IncompleteCardDeckInfo
+import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 
 object BlindBetFlow {
@@ -25,10 +30,28 @@ object BlindBetFlow {
     @CordaSerializable
     class BlindBetRequest(val minter: Party, val amount: Long)
 
+    @CordaSerializable
+    class BlindBetResponse(
+        val states: List<StateAndRef<TokenState>>,
+        val transactions: Set<SignedTransaction>
+    ) {
+        init {
+            "All transactions must be relevant to the states and vice versa" using
+                    (states.map { it.ref.txhash }.toSet() == transactions.map { it.id }.toSet())
+        }
+
+        constructor(states: List<StateAndRef<TokenState>>, serviceHub: ServiceHub) :
+                this(states, states.map { serviceHub.validatedTransactions.getTransaction(it.ref.txhash)!! }.toSet())
+    }
+
     // To use in a .fold.
     // We send the request to the player, the player returns a list of StateAndRef.
     // This is the list of responses for important players.
-    class Accumulator(val request: BlindBetRequest, val states: List<List<StateAndRef<TokenState>>>)
+    class Accumulator(
+        val request: BlindBetRequest,
+        val states: List<List<StateAndRef<TokenState>>>,
+        val transactions: Set<SignedTransaction>
+    )
 
     @InitiatingFlow
     @StartableByRPC
@@ -43,7 +66,6 @@ object BlindBetFlow {
 
         init {
             requireThat {
-                "BLIND_PLAYER_COUNT needs to be at least 2, it is $BLIND_PLAYER_COUNT" using (BLIND_PLAYER_COUNT >= 2)
                 "Small Bet cannot be 0" using (smallBet > 0)
                 "There needs at least $BLIND_PLAYER_COUNT players" using (players.size >= BLIND_PLAYER_COUNT)
             }
@@ -55,8 +77,9 @@ object BlindBetFlow {
          */
         companion object {
             object COLLECTING_BLINDBET_STATES : ProgressTracker.Step("Collecting all blind bets from first players.")
+            object SAVING_OTHER_TRANSACTIONS : ProgressTracker.Step("Saving transactions from other players.")
             object PINGING_OTHER_PLAYERS : ProgressTracker.Step("Pinging other players.")
-            object SENDING_TOKEN_STATES_TO_PLAYERS : ProgressTracker.Step("Sending token states to other players.")
+            object SENDING_TOKEN_STATES_TO_PLAYERS : ProgressTracker.Step("Sending token moreBets to other players.")
             object GENERATING_POT_STATES : ProgressTracker.Step("Generating betting pot.")
             object GENERATING_TRANSACTION : ProgressTracker.Step("Generating transaction.")
             object VERIFYING_TRANSACTION : ProgressTracker.Step("Verifying contract constraints.")
@@ -73,8 +96,9 @@ object BlindBetFlow {
             const val BLIND_PLAYER_COUNT = 2
         }
 
-        fun tracker() = ProgressTracker(
+        private fun tracker() = ProgressTracker(
             COLLECTING_BLINDBET_STATES,
+            SAVING_OTHER_TRANSACTIONS,
             PINGING_OTHER_PLAYERS,
             SENDING_TOKEN_STATES_TO_PLAYERS,
             GENERATING_POT_STATES,
@@ -95,21 +119,31 @@ object BlindBetFlow {
 
             // Obtain a reference to the notary we want to use.
             val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val dealer = serviceHub.myInfo.legalIdentities.first()
+
+            val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
+                .also {
+                    // Save deck to database
+                    serviceHub.cordaService(CardDeckDatabaseService::class.java).safeAddIncompleteDeck(
+                        IncompleteCardDeckInfo(it))
+                }
 
             progressTracker.currentStep = COLLECTING_BLINDBET_STATES
 
             val requiredSigners = players.take(BLIND_PLAYER_COUNT)
             val allFlows = players.map { initiateFlow(it) }
 
-            val playerStates = (0 until BLIND_PLAYER_COUNT)
+            val accumulator = (0 until BLIND_PLAYER_COUNT)
                 .fold(
                     Accumulator(
                         request = BlindBetRequest(minter = minter, amount = smallBet),
-                        states = listOf()
+                        states = listOf(),
+                        transactions = setOf()
                     )
                 ) { accumulator, playerIndex ->
-                    val receivedStates = allFlows[playerIndex]
-                        .sendAndReceive<List<StateAndRef<TokenState>>>(accumulator.request).unwrap { it }
+                    val response = allFlows[playerIndex]
+                        .sendAndReceive<BlindBetResponse>(accumulator.request).unwrap { it }
+                    val receivedStates = response.states
                         .filter { it.state.data.minter == minter }
                     val sum = receivedStates.map { it.state.data.amount }.sum()
                     requireThat {
@@ -121,13 +155,23 @@ object BlindBetFlow {
                                 (!receivedStates.map { it.state.data.isPot }.toSet().single())
                         "We have to receive at least ${accumulator.request.amount}, not $sum" using
                                 (accumulator.request.amount <= sum)
-                        // TODO enforce the doubling strictly?
+                        "Transactions should all be there" using
+                                (receivedStates.map { it.ref.txhash }.toSet() ==
+                                        response.transactions.map { it.id }.toSet())
                     }
                     Accumulator(
-                        request = BlindBetRequest(minter = minter, amount = sum),
-                        states = accumulator.states.plusElement(receivedStates)
+                        request = BlindBetRequest(minter = minter, amount = 2 * sum),
+                        states = accumulator.states.plusElement(receivedStates),
+                        transactions = accumulator.transactions.plus(response.transactions)
                     )
-                }.states
+                }
+
+            progressTracker.currentStep = SAVING_OTHER_TRANSACTIONS
+            val playerStates = accumulator.states
+            // TODO check more the transactions before saving them?
+            serviceHub.recordTransactions(
+                statesToRecord = StatesToRecord.ALL_VISIBLE, txs = accumulator.transactions
+            )
 
             progressTracker.currentStep = PINGING_OTHER_PLAYERS
             // We need to do it so that the responder flow is primed. We only care about finality with the other
@@ -135,10 +179,11 @@ object BlindBetFlow {
             val requestOthers = BlindBetRequest(minter = minter, amount = 0L)
             players.drop(BLIND_PLAYER_COUNT).forEachIndexed { index, _ ->
                 allFlows[index + BLIND_PLAYER_COUNT]
-                    .sendAndReceive<List<StateAndRef<TokenState>>>(requestOthers).unwrap { it }
-                    .also { statesOther ->
+                    .sendAndReceive<BlindBetResponse>(requestOthers).unwrap { it }
+                    .also { responseOthers ->
                         requireThat {
-                            "Other players should not send any state" using (statesOther.isEmpty())
+                            "Other players should not send any state" using (responseOthers.states.isEmpty())
+                            "Other players should not send any tx" using (responseOthers.transactions.isEmpty())
                         }
                     }
             }
@@ -160,15 +205,13 @@ object BlindBetFlow {
                     }
             }
 
-            val command = Command(
-                TokenContract.Commands.BetToPot(),
-                requiredSigners.map { it.owningKey }
-            )
-
             progressTracker.currentStep = GENERATING_TRANSACTION
             val txBuilder = TransactionBuilder(notary = notary)
 
-            txBuilder.addCommand(command)
+            txBuilder.addCommand(Command(
+                TokenContract.Commands.BetToPot(),
+                requiredSigners.map { it.owningKey }
+            ))
             playerStates.forEach { list ->
                 list.forEach {
                     txBuilder.addInputState(it)
@@ -177,6 +220,25 @@ object BlindBetFlow {
             potStates.forEach {
                 txBuilder.addOutputState(it, TokenContract.ID)
             }
+
+            txBuilder.addCommand(
+                Command(
+                    GameContract.Commands.Create(),
+                    listOf(dealer.owningKey)
+                )
+            )
+            txBuilder.addOutputState(
+                GameState(
+                    ActivePlayer.from(players),
+                    // At this stage, we are hiding all cards
+                    deckInfo.cards.map { it.hash },
+                    deckInfo.cards.map { null },
+                    BettingRound.BLIND_BET,
+                    BLIND_PLAYER_COUNT-1,
+                    players.plus(dealer)
+                ),
+                GameContract.ID
+            )
 
             progressTracker.currentStep = VERIFYING_TRANSACTION
             txBuilder.verify(serviceHub)
@@ -217,9 +279,14 @@ object BlindBetFlow {
          * checkpoint is reached in the code. See the 'progressTracker.currentStep' expressions within the call() function.
          */
         companion object {
-            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token states.")
-            object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token states.")
-            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token states.")
+            object RECEIVING_REQUEST_FOR_STATES : ProgressTracker.Step("Receiving request for token moreBets.") {
+                override fun childProgressTracker(): ProgressTracker {
+                    return CollectOwnTokenStateFlow.tracker()
+                }
+            }
+
+            object SENDING_TOKEN_STATES : ProgressTracker.Step("Sending back token moreBets.")
+            object RECEIVING_ALL_TOKEN_STATES : ProgressTracker.Step("Receiving all players token moreBets.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
                 override fun childProgressTracker(): ProgressTracker {
                     return SignTransactionFlow.tracker()
@@ -248,39 +315,25 @@ object BlindBetFlow {
 
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATES
             // Receive an incomplete transaction and a minimum amount to bet
-            val received = otherPartySession.receive<BlindBetRequest>().unwrap { it }
+            val request = otherPartySession.receive<BlindBetRequest>().unwrap { it }
 
             // TODO What to check with the filtered transaction?
 
-            val unconsumedStates = if (received.amount == 0L) {
+            val unconsumedStates = if (request.amount == 0L) {
                 // This is not a player that matters
                 listOf()
             } else {
                 // Find the states to bet according to the amount requested
-                var remainingAmount = received.amount
-
-                builder {
-                    val forMinter = TokenSchemaV1.PersistentToken::minter.equal(received.minter.toString())
-                    val forOwner =
-                        TokenSchemaV1.PersistentToken::owner.equal(me.toString())
-                    val forIsNotPot = TokenSchemaV1.PersistentToken::isPot.equal(false)
-                    val minterCriteria = QueryCriteria.VaultCustomQueryCriteria(forMinter)
-                    val ownerCriteria = QueryCriteria.VaultCustomQueryCriteria(forOwner)
-                    val isNotPotCriteria = QueryCriteria.VaultCustomQueryCriteria(forIsNotPot)
-                    val unconsumedCriteria: QueryCriteria =
-                        QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-                    val criteria = unconsumedCriteria.and(minterCriteria).and(ownerCriteria).and(isNotPotCriteria)
-                    serviceHub.vaultService.queryBy<TokenState>(criteria).states
-                }.takeWhile {
-                    // TODO avoid paying more than necessary
-                    // TODO soft lock the unconsumed states?
-                    remainingAmount -= it.state.data.amount
-                    remainingAmount > 0
-                }
+                subFlow(
+                    CollectOwnTokenStateFlow(
+                        TokenState(request.minter, me, request.amount, false),
+                        RECEIVING_REQUEST_FOR_STATES.childProgressTracker()
+                    )
+                )
             }
 
             progressTracker.currentStep = SENDING_TOKEN_STATES
-            otherPartySession.send(unconsumedStates)
+            otherPartySession.send(BlindBetResponse(states = unconsumedStates, serviceHub = serviceHub))
 
             progressTracker.currentStep = RECEIVING_ALL_TOKEN_STATES
             val allPlayerStateRefs =
@@ -296,17 +349,18 @@ object BlindBetFlow {
                 }.map { it.ref }
 
             progressTracker.currentStep = SIGNING_TRANSACTION
-            val txId = if (received.amount == 0L) {
+            val txId = if (request.amount == 0L) {
                 // We are actually sent the transaction hash
+                progressTracker.currentStep = CHECKING_VALIDITY // We have to do it
                 otherPartySession.receive<SecureHash>().unwrap { it }
             } else {
                 val signTransactionFlow =
                     object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
 
                         override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                            progressTracker.currentStep = CHECKING_VALIDITY
+                            this@CollectorAndSigner.progressTracker.currentStep = CHECKING_VALIDITY
                             // Making sure we see our previously received states, which have been checked
-                            "We should have only known states" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
+                            "We should have only known moreBets" using (stx.coreTransaction.inputs.toSet() == allPlayerStateRefs.toSet())
                         }
                     }
                 subFlow(signTransactionFlow).id

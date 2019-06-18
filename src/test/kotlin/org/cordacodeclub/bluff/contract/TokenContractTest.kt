@@ -344,15 +344,17 @@ class TokenContractTest {
     }
 
     @Test
-    fun `BetToPot transaction can pass with 1 token input and 1 pot input`() {
+    fun `BetToPot transaction can pass with 2 token inputs and 1 pot input`() {
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
                 input(ID, potState2)
+                input(ID, tokenState3)
                 output(ID, potState1)
                 output(ID, potState2)
+                output(ID, potState3)
                 command(
-                    listOf(owner1.publicKey),
+                    listOf(owner1.publicKey, owner3.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
                 verifies()
@@ -384,10 +386,11 @@ class TokenContractTest {
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState2)
+                input(ID, tokenState3)
                 output(ID, tokenState1)
                 output(ID, potState1)
                 command(
-                    listOf(owner2.publicKey),
+                    listOf(owner2.publicKey, owner3.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
                 failsWith("should be no output TokenState when Betting")
@@ -396,16 +399,16 @@ class TokenContractTest {
     }
 
     @Test
-    fun `BetToPot transaction must have at least one token input`() {
+    fun `BetToPot transaction must have at least 2 token inputs`() {
         ledgerServices.ledger {
             transaction {
-                input(ID, DummyState())
+                input(ID, tokenState1)
                 output(ID, potState1)
                 command(
                     listOf(owner1.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
-                failsWith("should be at least one input TokenState when Betting")
+                failsWith("should be at least 2 players betting")
             }
         }
     }
@@ -415,9 +418,10 @@ class TokenContractTest {
         ledgerServices.ledger {
             transaction {
                 input(ID, tokenState1)
+                input(ID, tokenState2)
                 output(ID, DummyState())
                 command(
-                    listOf(owner1.publicKey),
+                    listOf(owner1.publicKey, owner2.publicKey),
                     TokenContract.Commands.BetToPot()
                 )
                 failsWith("should be at least one output PotState when Betting")

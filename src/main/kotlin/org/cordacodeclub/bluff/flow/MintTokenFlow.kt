@@ -18,15 +18,16 @@ object MintTokenFlow {
     @StartableByRPC
     /**
      * This flow is startable by the dealer party.
-     * And it has to be signed by the players and delear.
+     * And it has to be signed by the players and dealer.
      * @param players list of parties being issued tokens
-     * @param amountPerPlayer the number of tokens minted to each player
+     * @param countPerPlayer the number of states created for each player
+     * @param amountPerState the number of token per state
      */
-    class Minter(val players: List<Party>, val amountPerPlayer: Long) : FlowLogic<SignedTransaction>() {
+    class Minter(val players: List<Party>, val countPerPlayer: Long, val amountPerState: Long) : FlowLogic<SignedTransaction>() {
 
         init {
             requireThat {
-                "amountPerPlayer must be >0" using (amountPerPlayer > 0)
+                "The number of tokens for each player must be more than 0" using (countPerPlayer > 0)
                 "There needs at least 1 player" using (players.isNotEmpty())
             }
         }
@@ -74,9 +75,9 @@ object MintTokenFlow {
             txBuilder.addCommand(command)
 
             players.forEach { player ->
-                (1..amountPerPlayer).forEach { _ ->
+                (1..countPerPlayer).forEach { _ ->
                     // We issue many tokens of 1 each to facilitate betting.
-                    txBuilder.addOutputState(TokenState(minter = minter, owner = player, amount = 1, isPot = false))
+                    txBuilder.addOutputState(TokenState(minter = minter, owner = player, amount = amountPerState, isPot = false))
                 }
             }
 
