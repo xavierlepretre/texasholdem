@@ -17,6 +17,7 @@ import com.nhaarman.mockito_kotlin.mock
 import net.corda.core.flows.FlowSession
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
+import org.cordacodeclub.bluff.state.PlayerHandState
 
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
@@ -115,6 +116,13 @@ class EndGameFlowTest {
         network.runNetwork()
 
         val finalSignedTx = endGameFuture.getOrThrow()
+
+        val playerHands = finalSignedTx.coreTransaction.outputsOfType<PlayerHandState>().sortedBy { it.place }
+        val winner = playerHands.first()
+
+        playerHands.map { println(it) }
+        println("Winner is : $winner")
+
         finalSignedTx.sigs.map { it.by }.toSet().also {
             assertTrue(it.contains(player1.owningKey))
             assertTrue(it.contains(player2.owningKey))
