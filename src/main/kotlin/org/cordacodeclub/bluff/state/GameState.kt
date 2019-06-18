@@ -28,13 +28,13 @@ data class GameState(
 }
 
 @CordaSerializable
-enum class BettingRound {
-    BLIND_BET, //Initial Blind bet setup
-    PRE_FLOP,  //First round of betting
-    FLOP,      //Three community cards places in the middle face up
-    TURN,      //Fourth community card revealed
-    RIVER,     //Fifth community card reveled - final round
-    END;       //Evaluation round to select the winner
+enum class BettingRound(val communityCardsAmount: Int) {
+    BLIND_BET(0), //Initial Blind bet setup
+    PRE_FLOP(0),  //First round of betting
+    FLOP(3),      //Three community cards places in the middle face up
+    TURN(4),      //Fourth community card revealed
+    RIVER(5),     //Fifth community card reveled - final round
+    END(5);       //Evaluation round to select the winner
 
     //To return next element
     fun next(): BettingRound {

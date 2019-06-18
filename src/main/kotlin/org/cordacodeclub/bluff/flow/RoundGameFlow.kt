@@ -84,12 +84,6 @@ object RoundGameFlow {
 
             val cardService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
             val deckInfo = cardService.getCardDeck(MerkleTree.getMerkleTree(latestGameState.hashedCards).hash)!!
-            val communityCardsAmount = when (latestGameState.bettingRound) {
-                BettingRound.FLOP -> 3
-                BettingRound.TURN -> 4
-                BettingRound.RIVER -> 5
-                else -> 0
-            }
 
             val dealer = serviceHub.myInfo.legalIdentities.first()
 
