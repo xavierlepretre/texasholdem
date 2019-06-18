@@ -106,13 +106,13 @@ class CreateGameFlowTest {
         network.runNetwork(10)
         replyWith(player2Node, PlayerAction.Call, 0)
 
-        network.runNetwork(10)
+        network.runNetwork(30)
         val signedTx = future.getOrThrow()!!
         signedTx.sigs.map { it.by }.toSet().also {
             assertTrue(it.contains(player1.owningKey))
-            assertTrue(it.contains(player2.owningKey))
-            assertFalse(it.contains(player3.owningKey))
-            assertFalse(it.contains(player4.owningKey))
+            assertFalse(it.contains(player2.owningKey))
+            assertTrue(it.contains(player3.owningKey))
+            assertTrue(it.contains(player4.owningKey))
         }
     }
 }
