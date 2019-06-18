@@ -115,6 +115,7 @@ object EndGameFlow {
                                     states = listOf()
                             )
                     ) { accumulator, playerIndex ->
+                        println("Sending HandReqest to ${playerIndex}")
                         val response = allFlows[playerIndex]
                                 .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
                         val receivedStates = response.states
@@ -227,11 +228,18 @@ object EndGameFlow {
         companion object {
             object RECEIVING_REQUEST_FOR_STATE : ProgressTracker.Step("Receiving request for best player hand.")
             object SENDING_HAND_STATE : ProgressTracker.Step("Sending back hand state.")
+            object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
+                override fun childProgressTracker(): ProgressTracker {
+                    return SignTransactionFlow.tracker()
+                }
+            }
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
+
 
             fun tracker() = ProgressTracker(
                     RECEIVING_REQUEST_FOR_STATE,
                     SENDING_HAND_STATE,
+                    SIGNING_TRANSACTION,
                     RECEIVING_FINALISED_TRANSACTION
             )
         }
@@ -242,6 +250,7 @@ object EndGameFlow {
 
             val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
+            println("Receiving HandResponse from $me")
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
 
             // TODO incorporate merkle tree hashes for correct card verification
@@ -269,9 +278,17 @@ object EndGameFlow {
             progressTracker.currentStep = SENDING_HAND_STATE
             otherPartySession.send(HandResponse(states = playerHandState))
 
-            otherPartySession.receive<SignedTransaction>().unwrap { it }
+            val signTransactionFlow =
+                    object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
+
+                        override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                        }
+                    }
+            val txId =subFlow(signTransactionFlow).id
+
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
-            return subFlow(ReceiveFinalityFlow(otherPartySession))
+
+            return subFlow(ReceiveFinalityFlow(otherPartySession, expectedTxId = txId))
         }
     }
 }
