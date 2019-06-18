@@ -196,12 +196,12 @@ object EndGameFlow {
             val fullySignedTx = subFlow(
                     CollectSignaturesFlow(
                             signedTx,
-                            allFlows,
+                            (players + minter).map { initiateFlow(it) },
                             GATHERING_SIGS.childProgressTracker()
                     )
             )
 
-            allFlows.map { it.send(fullySignedTx.id) }
+            //allFlows.map { it.send(fullySignedTx.id) }
 
             val result = (players + dealer + minter).map { it.name to it.owningKey }
             result.map { println(it) }
@@ -209,7 +209,7 @@ object EndGameFlow {
             progressTracker.currentStep = FINALISING_TRANSACTION
             return subFlow(
                     FinalityFlow(
-                            signedTx,
+                            fullySignedTx,
                             allFlows,
                             FINALISING_TRANSACTION.childProgressTracker()
                     )
@@ -269,6 +269,7 @@ object EndGameFlow {
             progressTracker.currentStep = SENDING_HAND_STATE
             otherPartySession.send(HandResponse(states = playerHandState))
 
+            otherPartySession.receive<SignedTransaction>().unwrap { it }
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
             return subFlow(ReceiveFinalityFlow(otherPartySession))
         }
