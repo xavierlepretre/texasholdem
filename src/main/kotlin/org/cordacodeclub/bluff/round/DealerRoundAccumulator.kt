@@ -6,10 +6,12 @@ import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
 import net.corda.core.transactions.SignedTransaction
 import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 
 // This object is passed around after each player has acted
 class DealerRoundAccumulator(
+    val round: BettingRound,
     val minter: Party,
     // Keeps track of which player has folded
     val players: List<ActivePlayer>,
@@ -105,6 +107,7 @@ class DealerRoundAccumulator(
                 else -> playerCountSinceLastRaise + 1
             }
         return DealerRoundAccumulator(
+            round = round,
             minter = minter,
             players = updatedPlayers,
             currentPlayerIndex = nextActivePlayerIndex,

@@ -23,6 +23,7 @@ import org.cordacodeclub.bluff.round.CallOrRaiseRequest
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.round.PlayerSideResponseAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
 import org.junit.Before
@@ -187,6 +188,7 @@ class PlayerSideResponseAccumulatorFlowTest {
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
+                round = BettingRound.PRE_FLOP,
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,
@@ -219,6 +221,7 @@ class PlayerSideResponseAccumulatorFlowTest {
             deckInfo = deckInfo,
             players = players,
             accumulator = DealerRoundAccumulator(
+                round = BettingRound.PRE_FLOP,
                 minter = minter,
                 players = players.map { ActivePlayer(it, false) },
                 currentPlayerIndex = 2,

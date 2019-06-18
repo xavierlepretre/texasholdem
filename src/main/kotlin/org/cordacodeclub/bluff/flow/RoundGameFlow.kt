@@ -103,6 +103,7 @@ object RoundGameFlow {
                     deckInfo = deckInfo,
                     playerFlows = playerFlows.values.filter { !it.first }.map { it.second },
                     accumulator = DealerRoundAccumulator(
+                        round = latestGameState.bettingRound.next(),
                         minter = minter,
                         players = players,
                         currentPlayerIndex = latestGameState.lastBettor + 1,

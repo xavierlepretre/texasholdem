@@ -31,7 +31,8 @@ class DealerRoundAccumulatorFlow(
             yourWager = accumulator.currentPlayerSum,
             cardHashes = deckInfo.hashedCards,
             yourCards = deckInfo.getPlayerCards(accumulator.currentPlayerIndex),
-            communityCards = listOf()
+            communityCards = deckInfo.getCommunityCards(accumulator.players.size)
+                .take(accumulator.round.communityCardsAmount)
         )
         playerFlows[accumulator.currentPlayerIndex].send(request)
         val response = playerFlows[accumulator.currentPlayerIndex]

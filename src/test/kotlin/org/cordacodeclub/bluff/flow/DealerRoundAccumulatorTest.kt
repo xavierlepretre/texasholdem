@@ -13,6 +13,7 @@ import net.corda.testing.core.TestIdentity
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
+import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -47,6 +48,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -87,6 +89,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -128,6 +131,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 0,
@@ -169,6 +173,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -218,6 +223,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -270,6 +276,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
@@ -325,6 +332,7 @@ class DealerRoundAccumulatorTest {
             ActivePlayer(player2.party, false)
         )
         val resultRound = DealerRoundAccumulator(
+            round = BettingRound.PRE_FLOP,
             minter = minter.party,
             players = players,
             currentPlayerIndex = 2,
