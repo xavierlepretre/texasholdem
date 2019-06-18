@@ -19,6 +19,7 @@ import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
+import org.cordacodeclub.bluff.dealer.IncompleteCardDeckInfo
 import org.cordacodeclub.bluff.state.ActivePlayer
 import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.GameState
@@ -123,7 +124,8 @@ object BlindBetFlow {
             val deckInfo = CardDeckInfo.createShuffledWith(players.map { it.name }, dealer.name)
                 .also {
                     // Save deck to database
-                    serviceHub.cordaService(CardDeckDatabaseService::class.java).addDeck(it)
+                    serviceHub.cordaService(CardDeckDatabaseService::class.java).safeAddIncompleteDeck(
+                        IncompleteCardDeckInfo(it))
                 }
 
             progressTracker.currentStep = COLLECTING_BLINDBET_STATES

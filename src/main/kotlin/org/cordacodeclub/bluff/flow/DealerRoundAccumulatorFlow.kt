@@ -21,9 +21,8 @@ class DealerRoundAccumulatorFlow(
     override fun call(): DealerRoundAccumulator {
         if (accumulator.isRoundDone) {
             // Notify all players that the round is done. We need to do this because the responder flow has to move on
-            with(RoundTableDone(accumulator.newBets.flatMap { it.value })) {
-                playerFlows.forEach { it.send(this) }
-            }
+            val roundTableDone = RoundTableDone(accumulator.newBets.flatMap { it.value })
+            playerFlows.forEach { it.send(roundTableDone) }
             return accumulator
         }
         val request = CallOrRaiseRequest(
@@ -34,15 +33,21 @@ class DealerRoundAccumulatorFlow(
             yourCards = deckInfo.getPlayerCards(accumulator.currentPlayerIndex),
             communityCards = listOf()
         )
+        playerFlows[accumulator.currentPlayerIndex].send(request)
         val response = playerFlows[accumulator.currentPlayerIndex]
-            .sendAndReceive<CallOrRaiseResponse>(request).unwrap { it }
-        return subFlow(
-            DealerRoundAccumulatorFlow(
-                deckInfo = deckInfo,
-                playerFlows = playerFlows,
-                accumulator = accumulator.stepForwardWhenCurrentPlayerSent(response),
-                depth = depth + 1
+            .receive<CallOrRaiseResponse>().unwrap { it }
+        return try {
+            subFlow(
+                DealerRoundAccumulatorFlow(
+                    deckInfo = deckInfo,
+                    playerFlows = playerFlows,
+                    accumulator = accumulator.stepForwardWhenCurrentPlayerSent(response),
+                    depth = depth + 1
+                )
             )
-        )
+        } catch (e: Throwable) {
+            println(e)
+            throw e
+        }
     }
 }

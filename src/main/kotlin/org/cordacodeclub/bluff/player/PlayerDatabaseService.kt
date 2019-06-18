@@ -12,7 +12,7 @@ import org.cordacodeclub.grom356.CardList.Companion.toString
  * @param services The node's service hub.
  */
 @CordaService
-class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
+class PlayerDatabaseService(val services: ServiceHub) : DatabaseService(services) {
     init {
         setUpStorage()
     }
@@ -64,7 +64,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
         )
 
         val rowCount = executeUpdate(query, params)
-        log.info("Request $id updated in $tableName table. rowCount: $rowCount")
+        log.info("Request $id updated in $tableName table. rowCount: $rowCount in ${services.myInfo.legalIdentities.first()}")
         return rowCount
     }
 
@@ -87,7 +87,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
                 it.getLong("addAmount")
             )
         }
-        log.info("Selected ${results.size} requests from $tableName table.")
+        log.info("Selected ${results.size} requests from $tableName table for id $id in ${services.myInfo.legalIdentities.first()}.")
         return results.firstOrNull()
     }
 
@@ -166,7 +166,7 @@ class PlayerDatabaseService(services: ServiceHub) : DatabaseService(services) {
             )
         }
 
-        log.info("Selected ${results.size} requests from $tableName table.")
+        log.info("Selected top action ${results.size} requests from $tableName table in ${services.myInfo.legalIdentities.first()}.")
         return results.firstOrNull()
     }
 

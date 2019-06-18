@@ -44,13 +44,13 @@ object SlowBounceFlow {
          */
         @Suspendable
         override fun call() {
-            initiateFlow(bouncer).also {
-                progressTracker.currentStep = SENDING
-                it.send(duration)
-                progressTracker.currentStep = WAITING
-                it.receive<Unit>()
-                progressTracker.currentStep = DONE
-            }
+            val me = serviceHub.myInfo.legalIdentities.first()
+            val bouncerFlow = initiateFlow(bouncer)
+            progressTracker.currentStep = SENDING
+            bouncerFlow.send(duration)
+            progressTracker.currentStep = WAITING
+            bouncerFlow.receive<Unit>()
+            progressTracker.currentStep = DONE
         }
     }
 
@@ -74,6 +74,7 @@ object SlowBounceFlow {
 
         @Suspendable
         override fun call() {
+            val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = AWAKEN
             val duration = otherPartySession.receive<Long>().unwrap { it }
             progressTracker.currentStep = RECEIVED

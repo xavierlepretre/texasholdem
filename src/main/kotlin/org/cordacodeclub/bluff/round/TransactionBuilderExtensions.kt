@@ -16,7 +16,7 @@ fun TransactionBuilder.addElementsOf(
     addCommand(
         Command(
             TokenContract.Commands.BetToPot(),
-            accumulated.newBets.keys.map { it.owningKey })
+            accumulated.newBets.toList().filter { it.second.size > 0 }.map { it.first.owningKey })
     )
 
     // Add existing pot tokens

@@ -62,27 +62,45 @@ class PlayerSideResponseAccumulatorFlowTest {
         @Suspendable
         override fun call(): Map<Party, PlayerSideResponseAccumulator> {
             val playerFlows = players.map { initiateFlow(it) }
-            val accumulated = subFlow(
-                DealerRoundAccumulatorFlow(
-                    deckInfo = deckInfo,
-                    playerFlows = playerFlows,
-                    accumulator = accumulator
+            val accumulated = try {
+                subFlow(
+                    DealerRoundAccumulatorFlow(
+                        deckInfo = deckInfo,
+                        playerFlows = playerFlows,
+                        accumulator = accumulator
+                    )
                 )
-            )
+            } catch (e: Throwable) {
+                println(e)
+                throw e
+            }
             return players.mapIndexed { index, player ->
                 player to playerFlows[index].receive<PlayerSideResponseAccumulator>().unwrap { it }
             }.toMap()
         }
     }
 
-    private class SendBackPlayerSideResponseAccumulatorFlow(otherPartySession: FlowSession) :
-        PlayerSideResponseAccumulatorFlow(
-            otherPartySession,
-            PlayerSideResponseAccumulator(),
-            { request -> PlayerResponseCollectingPreparedFlow(request) }) {
+    class SendBackPlayerSideResponseAccumulatorFlow(otherPartySession: FlowSession) :
+        PlayerSideResponseAccumulatorFlow(otherPartySession) {
+
+        @Suspendable
+        override fun getActionRequest(request: CallOrRaiseRequest): ActionRequest {
+            return try {
+                subFlow(PlayerResponseCollectingPreparedFlow(request))
+            } catch (e: Throwable) {
+                println(e)
+                throw e
+            }
+        }
+
+        @Suspendable
+        override fun createOwn(otherPartySession: FlowSession): PlayerSideResponseAccumulatorFlow {
+            return SendBackPlayerSideResponseAccumulatorFlow(otherPartySession)
+        }
 
         @Suspendable
         override fun call() = super.call().also {
+            val me = serviceHub.myInfo.legalIdentities.first()
             otherPartySession.send(it)
         }
     }
