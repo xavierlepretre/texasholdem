@@ -6,7 +6,8 @@ import net.corda.core.identity.Party
 
 data class PlayerHandState(
         val cardIndexes: List<Int>,
-        val owner: Party
+        val owner: Party,
+        val place: Int? = null
 ) : ContractState {
     override val participants: List<AbstractParty>
         get() = listOf(owner)

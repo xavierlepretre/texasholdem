@@ -36,7 +36,7 @@ class GameContract : Contract {
 
             is Commands.Close -> requireThat {
                 "There should be a single input game" using (inputGames.size == 1)
-                "There should be no output games" using (outputGames.isEmpty())
+                //"There should be no output games" using (outputGames.isEmpty())
                 // TODO check there is a win (possibly include winningContract here)
             }
 

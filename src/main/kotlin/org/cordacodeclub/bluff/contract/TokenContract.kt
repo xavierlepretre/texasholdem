@@ -97,6 +97,11 @@ class TokenContract : Contract {
                 "The minter should sign when Burning" using (command.signers.contains(minters.single().owningKey))
             }
 
+            //Added to reward winner, but needs to be removed as other inputs/outputs have to be taken into an account.
+            is Commands.Reward -> requireThat {
+                "There should be only one output TokenState when Rewarding" using (outputTokenCount > 0)
+            }
+
             else -> throw IllegalArgumentException("Unrecognised command $command")
         }
     }
@@ -107,5 +112,6 @@ class TokenContract : Contract {
         class BetToPot : Commands
         class Win : Commands
         class Burn : Commands
+        class Reward : Commands
     }
 }

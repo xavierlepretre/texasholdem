@@ -2,6 +2,8 @@ package org.cordacodeclub.bluff.player
 
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
+import net.corda.core.serialization.CordaSerializable
+import net.corda.core.serialization.CordaSerializationTransformRenames
 import org.cordacodeclub.bluff.db.DatabaseService
 import org.cordacodeclub.grom356.Card
 import org.cordacodeclub.grom356.CardList.Companion.toString

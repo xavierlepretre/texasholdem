@@ -1,8 +1,7 @@
 package org.cordacodeclub.bluff.flow
 
 import co.paralleluniverse.fibers.Suspendable
-import net.corda.core.contracts.Command
-import net.corda.core.contracts.requireThat
+import net.corda.core.contracts.*
 import net.corda.core.crypto.MerkleTree
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
@@ -16,13 +15,8 @@ import org.cordacodeclub.bluff.contract.GameContract
 import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.contract.WinningHandContract
 import org.cordacodeclub.bluff.dealer.*
-import org.cordacodeclub.bluff.player.PlayerDatabaseService
-import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.GameState
-import org.cordacodeclub.bluff.state.PlayerHandState
-import org.cordacodeclub.bluff.state.TokenState
+import org.cordacodeclub.bluff.state.*
 import org.cordacodeclub.grom356.Hand
-import kotlin.collections.containsAll
 
 
 object EndGameFlow {
@@ -30,7 +24,8 @@ object EndGameFlow {
     @CordaSerializable
     class HandRequest(
             val cardDeckInfo: CardDeckInfo,
-            val players: List<ActivePlayer>)
+            val players: List<ActivePlayer>
+    )
 
     @CordaSerializable
     class HandResponse(
@@ -43,8 +38,7 @@ object EndGameFlow {
             val states: List<PlayerHandState>
     )
 
-    @InitiatingFlow
-    @StartableByRPC
+
     /**
      * This flow is startable by the dealer party.
      * And it has to be signed by the players and dealer.
@@ -52,6 +46,8 @@ object EndGameFlow {
      * @param gameId the hash of the transaction with the GameState
      */
 
+    @InitiatingFlow
+    @StartableByRPC
     class Initiator(
             private val players: List<Party>,
             private val gameId: SecureHash
@@ -102,11 +98,13 @@ object EndGameFlow {
             val gameState = gameStateAndRef.state.data
             val potTokens = gameStateTx.tx.outRefsOfType<TokenState>().map { it.state.data }
             val minter = potTokens.map { it.minter }.toSet().single()
+            val dealer = serviceHub.myInfo.legalIdentities.first()
 
             val cardService = serviceHub.cordaService(CardDeckDatabaseService::class.java)
             val deckInfo = cardService.getCardDeck(MerkleTree.getMerkleTree(gameState.hashedCards).hash)!!
             val merkleTree = deckInfo.merkleTree
             val allFlows = players.map { initiateFlow(it) }
+            val notary = serviceHub.networkMapCache.notaryIdentities.first()
 
             progressTracker.currentStep = COLLECTING_HAND_STATES
             // TODO add some requirement checks
@@ -117,6 +115,7 @@ object EndGameFlow {
                                     states = listOf()
                             )
                     ) { accumulator, playerIndex ->
+                        println("Sending HandReqest to ${playerIndex}")
                         val response = allFlows[playerIndex]
                                 .sendAndReceive<HandResponse>(accumulator.request).unwrap { it }
                         val receivedStates = response.states
@@ -138,40 +137,53 @@ object EndGameFlow {
             val incompleteDeck = playerCards + communityCards
 
             requireThat {
-                "All bettors must be part of the current game" using (players.map { it.name }.containsAll(incompleteDeck.map { it.owner }))
+                // "All bettors must be part of the current game" using (players.map { it.name }.containsAll(incompleteDeck.map { it.owner }))
                 "All the hand cards must be part of the current game" using (deckInfo.cards.containsAll(incompleteDeck))
                 "The cards must be part of the existing game deck" using (merkleTree.containsAll(incompleteDeck))
             }
-            val updatedGameState = gameState.copy(cards = incompleteDeck)
-
+            val updatedGameState = gameState.copy(cards = incompleteDeck, bettingRound = BettingRound.END)
 
             progressTracker.currentStep = WINNER_SELECTION
             //Assemble hands to determine the winning hand
             val playerHands = playerHandStates.map {
                 it.owner to Hand.eval(it.cardIndexes.map { deckInfo.cards[it].card })
             }
-            val winningHand = playerHands.map { it.first to it.second }.sortedBy { it.second }.first()
+
+            val sortedPlayerHands = playerHands.map { it.first to it.second }.sortedBy { it.second }
+            val updatedPlayerHandStates = playerHandStates.map {
+                val place = sortedPlayerHands.map { it.first }.indexOf(it.owner) + 1
+                it.copy(place = place)
+            }
+            val winningHand = sortedPlayerHands.map { it.first to it.second }.sortedBy { it.second }.first()
 
             //Create a winner token state
             //TODO proper transfer of token ownership (update all other token states)
             val prizeTokens = potTokens.map { it.amount }.sum()
-            //val updatedTokenState =
             val winningTokenState = TokenState(minter, winningHand.first, prizeTokens, false)
 
             progressTracker.currentStep = GENERATING_TRANSACTION
-            val notary = serviceHub.networkMapCache.notaryIdentities.first()
             val txBuilder = TransactionBuilder(notary = notary)
 
             txBuilder.addCommand(Command(
                     WinningHandContract.Commands.Compare(),
-                    players.map { it.owningKey }
+                    (players).map { it.owningKey }
+            ))
+
+            txBuilder.addCommand(Command(
+                    GameContract.Commands.Close(),
+                    listOf(dealer).map { it.owningKey }
+            ))
+
+            txBuilder.addCommand(Command(
+                    TokenContract.Commands.Reward(),
+                    listOf(minter).map { it.owningKey }
             ))
 
             //Inputs to consume
             txBuilder.addInputState(gameStateAndRef)
-            playerHandStates.forEach { txBuilder.addOutputState(it, WinningHandContract.ID) }
 
             //New outputs
+            updatedPlayerHandStates.forEach { txBuilder.addOutputState(it, WinningHandContract.ID) }
             txBuilder.addOutputState(updatedGameState, GameContract.ID)
             txBuilder.addOutputState(winningTokenState, TokenContract.ID)
 
@@ -181,11 +193,25 @@ object EndGameFlow {
             progressTracker.currentStep = SIGNING_TRANSACTION
             val signedTx = serviceHub.signInitialTransaction(txBuilder)
 
+            progressTracker.currentStep = GATHERING_SIGS
+            val fullySignedTx = subFlow(
+                    CollectSignaturesFlow(
+                            signedTx,
+                            (players + minter).map { initiateFlow(it) },
+                            GATHERING_SIGS.childProgressTracker()
+                    )
+            )
+
+            //allFlows.map { it.send(fullySignedTx.id) }
+
+            val result = (players + dealer + minter).map { it.name to it.owningKey }
+            result.map { println(it) }
+
             progressTracker.currentStep = FINALISING_TRANSACTION
             return subFlow(
                     FinalityFlow(
-                            signedTx,
-                            players.map { initiateFlow(it) },
+                            fullySignedTx,
+                            allFlows,
                             FINALISING_TRANSACTION.childProgressTracker()
                     )
             )
@@ -202,25 +228,30 @@ object EndGameFlow {
         companion object {
             object RECEIVING_REQUEST_FOR_STATE : ProgressTracker.Step("Receiving request for best player hand.")
             object SENDING_HAND_STATE : ProgressTracker.Step("Sending back hand state.")
+            object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
+                override fun childProgressTracker(): ProgressTracker {
+                    return SignTransactionFlow.tracker()
+                }
+            }
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
+
 
             fun tracker() = ProgressTracker(
                     RECEIVING_REQUEST_FOR_STATE,
                     SENDING_HAND_STATE,
+                    SIGNING_TRANSACTION,
                     RECEIVING_FINALISED_TRANSACTION
             )
         }
 
         override val progressTracker: ProgressTracker = tracker()
-        open var playerDatabaseService: PlayerDatabaseService? = null
-
         @Suspendable
         override fun call(): SignedTransaction {
 
             val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
+            println("Receiving HandResponse from $me")
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
-            val playerCardService = playerDatabaseService ?: serviceHub.cordaService(PlayerDatabaseService::class.java)
 
             // TODO incorporate merkle tree hashes for correct card verification
             //Game cards
@@ -232,26 +263,32 @@ object EndGameFlow {
             val myPosition = request.players.indexOf(request.players.find { it.party == me })
             val myCards = deck.getPlayerCards(myPosition)
             val myGameCards = myCards + communityCards
-            val mySavedCards = playerCardService.getPlayerCards(me.name.toString())
 
             //We can assume the player chooses the best hand possible
-            val myHandCards = Hand.eval(myGameCards.map { it.card }).cards.map { gameCards.indexOf(it) }
-            val playerHandState = PlayerHandState(myHandCards, me)
+            val myHandCards = Hand.eval(myGameCards.map { it.card }).cards
+            val myHandCardIndexes = myHandCards.map { gameCards.map { it.toString() }.indexOf(it.toString()) }
+            val playerHandState = PlayerHandState(myHandCardIndexes, me)
 
-            //this can go in the contract eventually
             requireThat {
-                "Cards should be part of the current game deck" using (gameCards.containsAll(mySavedCards))
-                "Current cards at hand must be the same as before" using
-                        ((myGameCards).sortedBy { it.card.rank } == mySavedCards.sortedBy { it!!.rank })
+                "Cards should be part of the current game deck" using (gameCards.containsAll(myCards.map { it.card }))
+
                 "Card hashes must be in the Merkle root" using (deck.hashedCards.containsAll(deck.cards.map { it.hash }))
             }
-            val latestPlayerAction = playerCardService.getPlayerAction(me.name.toString())
 
             progressTracker.currentStep = SENDING_HAND_STATE
             otherPartySession.send(HandResponse(states = playerHandState))
 
+            val signTransactionFlow =
+                    object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
+
+                        override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                        }
+                    }
+            val txId =subFlow(signTransactionFlow).id
+
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
-            return subFlow(ReceiveFinalityFlow(otherPartySession))
+
+            return subFlow(ReceiveFinalityFlow(otherPartySession, expectedTxId = txId))
         }
     }
 }

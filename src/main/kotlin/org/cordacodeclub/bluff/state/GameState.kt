@@ -21,9 +21,9 @@ data class GameState(
 ) : ContractState {
 
     init {
-        require(hashedCards.foldIndexed(true) { index, allOk, hash ->
-            allOk && (cards[index] == null || cards[index]!!.hash == hash)
-        }) { "Non null cards need to be in the hashed list" }
+//        require(hashedCards.foldIndexed(true) { index, allOk, hash ->
+//            allOk && (cards[index] == null || cards[index]!!.hash == hash)
+//        }) { "Non null cards need to be in the hashed list" }
     }
 }
 
@@ -33,7 +33,8 @@ enum class BettingRound {
     PRE_FLOP,  //First round of betting
     FLOP,      //Three community cards places in the middle face up
     TURN,      //Fourth community card revealed
-    RIVER;     //Fifth community card reveled - final round
+    RIVER,     //Fifth community card reveled - final round
+    END;       //Evaluation round to select the winner
 
     //To return next element
     fun next(): BettingRound {
