@@ -126,7 +126,7 @@ class BluffApi(private val rpcOps: CordaRPCOps) {
         }
         return try{
             val playerParties = players.map { rpcOps.partiesFromName(it, true).single() }
-            val signedTransaction = rpcOps.startFlow(CreateGameFlow::GameCreator, previousRoundId)
+            val signedTransaction = rpcOps.startFlow(RoundGameFlow::GameCreator, previousRoundId)
                     .returnValue.getOrThrow()
             Response.ok(signedTransaction).build()
         } catch (ex: Throwable) {

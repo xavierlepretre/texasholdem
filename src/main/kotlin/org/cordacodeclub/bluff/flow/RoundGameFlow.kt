@@ -23,7 +23,7 @@ import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 
-object CreateGameFlow {
+object RoundGameFlow {
 
     @InitiatingFlow
     @StartableByRPC
@@ -101,6 +101,7 @@ object CreateGameFlow {
 
             val playerFlows = players.map { it.party to (it.folded to initiateFlow(it.party)) }.toMap()
 
+            println("before round flow")
             // Player after smallBet and bigBet starts
             // Send only their cards to each player, ask for bets
             val accumulated = subFlow(
@@ -121,6 +122,7 @@ object CreateGameFlow {
                     )
                 )
             )
+            println("after round flow")
 
             progressTracker.currentStep = SAVING_OTHER_TRANSACTIONS
             // TODO check more the transactions before saving them?
@@ -179,6 +181,7 @@ object CreateGameFlow {
                 println(e)
                 throw e
             }
+            println(tx)
             return tx
         }
     }
@@ -188,11 +191,13 @@ object CreateGameFlow {
 
         @Suspendable
         override fun getActionRequest(request: CallOrRaiseRequest): ActionRequest {
+            println("getActionRequest func $depth")
             return subFlow(PlayerResponseCollectingByPollerFlow(request, request.minter))
         }
 
         @Suspendable
         override fun createOwn(otherPartySession: FlowSession): PlayerSideResponseAccumulatorFlow {
+            println("createOwn $depth")
             return PlayerSideResponseAccumulatorFlowByPoller(otherPartySession)
         }
     }
@@ -231,10 +236,12 @@ object CreateGameFlow {
         override fun call(): SignedTransaction? {
             val me = serviceHub.myInfo.legalIdentities.first()
 
+            println("Game responder 1 $me")
             progressTracker.currentStep = RECEIVING_REQUESTS
             val responseAccumulator = subFlow(
                 PlayerSideResponseAccumulatorFlowByPoller(otherPartySession = otherPartySession)
             )
+            println("Game responder 2 $me")
 
             progressTracker.currentStep = RECEIVED_ROUND_DONE
 
@@ -249,6 +256,7 @@ object CreateGameFlow {
                     }
                 }.map { it.ref }
 
+            println("Game responder 3")
             progressTracker.currentStep = SIGNING_TRANSACTION
             logger.info("signing transaction")
             val txId = if (responseAccumulator.myNewBets.isEmpty()) {
@@ -279,6 +287,7 @@ object CreateGameFlow {
                     throw e
                 }
             }
+            println("Game responder 4")
 
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
             val tx = try {
@@ -288,6 +297,7 @@ object CreateGameFlow {
                 println(e)
                 throw e
             }
+            println(tx)
             return tx
         }
     }

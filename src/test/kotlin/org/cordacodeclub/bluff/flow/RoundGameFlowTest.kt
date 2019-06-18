@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 /**
  * Add -javaagent:./lib/quasar.jar to VM Options
  */
-class CreateGameFlowTest {
+class RoundGameFlowTest {
     private lateinit var network: MockNetwork
     private lateinit var minterNode: StartedMockNode
     private lateinit var dealerNode: StartedMockNode
@@ -83,17 +83,20 @@ class CreateGameFlowTest {
         var done = false
         do {
             Thread.sleep(1000)
+            println("replyWith 1 ${node.info.singleIdentity()}")
             val request = node.transaction { playerService.getTopActionRequest() }
             if (request != null) {
+                println("replyWith 2 ${node.info.singleIdentity()}")
                 node.transaction { playerService.updateActionRequest(request.id, playerAction, addAmount) }
                 done = true
             }
+            println("replyWith 3 ${node.info.singleIdentity()}")
         } while (!done)
     }
 
     @Test
     fun `Round where all call`() {
-        val flow = CreateGameFlow.GameCreator(blindBetTx.id)
+        val flow = RoundGameFlow.GameCreator(blindBetTx.id)
         val future = dealerNode.startFlow(flow)
         network.runNetwork(10)
 
