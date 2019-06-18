@@ -9,9 +9,12 @@ import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
+import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.state.GameState
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -75,7 +78,12 @@ class RoundGameFlowTest {
 
     @After
     fun tearDown() {
-        network.stopNodes()
+        // TODO remove this try catch
+        try {
+            network.stopNodes()
+        } catch (e: Throwable) {
+            println(e)
+        }
     }
 
     private fun replyWith(node: StartedMockNode, playerAction: PlayerAction, addAmount: Long) {
@@ -117,5 +125,8 @@ class RoundGameFlowTest {
             assertTrue(it.contains(player3.owningKey))
             assertTrue(it.contains(player4.owningKey))
         }
+        val gameState = signedTx.coreTransaction.outputsOfType<GameState>().single()
+        assertEquals(BettingRound.PRE_FLOP, gameState.bettingRound)
+        assertEquals(1, gameState.lastBettor)
     }
 }

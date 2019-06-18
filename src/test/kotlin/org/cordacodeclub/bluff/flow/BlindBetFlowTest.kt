@@ -9,6 +9,7 @@ import net.corda.core.utilities.getOrThrow
 import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
+import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
@@ -160,7 +161,7 @@ class BlindBetFlowTest {
     }
 
     @Test
-    fun `SignedTransaction has output of empty GameState`() {
+    fun `SignedTransaction has proper output of GameState without cards`() {
         val flow = BlindBetFlow.Initiator(
             listOf(player1, player2, player3, player4),
             minter,
@@ -175,5 +176,6 @@ class BlindBetFlowTest {
         val gameState = outputs.single()
         assertTrue(gameState.cards.all { it == null })
         assertEquals(setOf(dealer, player1, player2, player3, player4), gameState.participants.toSet())
+        assertEquals(BettingRound.BLIND_BET, gameState.bettingRound)
     }
 }

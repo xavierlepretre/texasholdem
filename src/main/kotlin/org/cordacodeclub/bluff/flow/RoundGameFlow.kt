@@ -129,7 +129,7 @@ object RoundGameFlow {
 
             val gameCommand = GameContract.Commands.CarryOn()
             val updatedGameState = latestGameState.copy(
-                lastBettor = latestGameState.lastBettor + 1, // TODO fix that
+                lastBettor = latestGameState.lastBettor, // TODO fix that
                 bettingRound = latestGameState.bettingRound.next()
             )
 
