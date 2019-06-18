@@ -129,4 +129,48 @@ class RoundGameFlowTest {
         assertEquals(BettingRound.PRE_FLOP, gameState.bettingRound)
         assertEquals(1, gameState.lastBettor)
     }
+
+    @Test
+    fun `Second round where all call`() {
+        val preFlopFlow = RoundGameFlow.GameCreator(blindBetTx.id)
+        val preFlopFuture = dealerNode.startFlow(preFlopFlow)
+        network.runNetwork(10)
+
+        // Update on players
+        replyWith(player3Node, PlayerAction.Call, 0)
+        network.runNetwork(10)
+        replyWith(player4Node, PlayerAction.Call, 0)
+        network.runNetwork(10)
+        replyWith(player1Node, PlayerAction.Call, 0)
+        network.runNetwork(10)
+        replyWith(player2Node, PlayerAction.Call, 0)
+
+        network.runNetwork(30)
+        val preFlopSignedTx = preFlopFuture.getOrThrow()!!
+
+        val flopFlow = RoundGameFlow.GameCreator(preFlopSignedTx.id)
+        val flopFuture = dealerNode.startFlow(flopFlow)
+        network.runNetwork(30)
+
+        // Update on players
+        replyWith(player3Node, PlayerAction.Raise, 10)
+        network.runNetwork(30)
+        replyWith(player4Node, PlayerAction.Call, 0)
+        network.runNetwork(30)
+        replyWith(player1Node, PlayerAction.Call, 0)
+        network.runNetwork(30)
+        replyWith(player2Node, PlayerAction.Call, 0)
+
+        network.runNetwork(30)
+        val flopSignedTx = flopFuture.getOrThrow()!!
+
+        flopSignedTx.sigs.map { it.by }.toSet().also {
+            assertTrue(it.contains(player1.owningKey))
+            assertTrue(it.contains(player2.owningKey))
+            assertTrue(it.contains(player3.owningKey))
+            assertTrue(it.contains(player4.owningKey))
+        }
+        val gameState = flopSignedTx.coreTransaction.outputsOfType<GameState>().single()
+        assertEquals(BettingRound.FLOP, gameState.bettingRound)
+    }
 }
