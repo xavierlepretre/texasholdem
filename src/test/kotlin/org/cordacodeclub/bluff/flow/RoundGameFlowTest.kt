@@ -160,6 +160,8 @@ class RoundGameFlowTest {
         replyWith(player1Node, PlayerAction.Call, 0)
         network.runNetwork(30)
         replyWith(player2Node, PlayerAction.Call, 0)
+        network.runNetwork(30)
+        replyWith(player3Node, PlayerAction.Call, 0)
 
         network.runNetwork(30)
         val flopSignedTx = flopFuture.getOrThrow()!!
