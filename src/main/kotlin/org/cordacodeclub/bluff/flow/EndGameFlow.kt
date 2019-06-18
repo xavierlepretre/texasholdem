@@ -176,7 +176,7 @@ object EndGameFlow {
 
             txBuilder.addCommand(Command(
                     TokenContract.Commands.Reward(),
-                    listOf(minter).map { it.owningKey }
+                    listOf(dealer).map { it.owningKey }
             ))
 
             //Inputs to consume
@@ -197,7 +197,7 @@ object EndGameFlow {
             val fullySignedTx = subFlow(
                     CollectSignaturesFlow(
                             signedTx,
-                            (players + minter).map { initiateFlow(it) },
+                            allFlows,
                             GATHERING_SIGS.childProgressTracker()
                     )
             )
@@ -233,6 +233,7 @@ object EndGameFlow {
                     return SignTransactionFlow.tracker()
                 }
             }
+
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 
 
@@ -250,7 +251,7 @@ object EndGameFlow {
 
             val me = serviceHub.myInfo.legalIdentities.first()
             progressTracker.currentStep = RECEIVING_REQUEST_FOR_STATE
-            println("Receiving HandResponse from $me")
+            println("Receiving HandResponse from $me ${otherPartySession}")
             val request = otherPartySession.receive<HandRequest>().unwrap { it }
 
             // TODO incorporate merkle tree hashes for correct card verification
@@ -271,7 +272,6 @@ object EndGameFlow {
 
             requireThat {
                 "Cards should be part of the current game deck" using (gameCards.containsAll(myCards.map { it.card }))
-
                 "Card hashes must be in the Merkle root" using (deck.hashedCards.containsAll(deck.cards.map { it.hash }))
             }
 
@@ -280,11 +280,11 @@ object EndGameFlow {
 
             val signTransactionFlow =
                     object : SignTransactionFlow(otherPartySession, SIGNING_TRANSACTION.childProgressTracker()) {
-
                         override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                            println("Hello 1")
                         }
                     }
-            val txId =subFlow(signTransactionFlow).id
+            val txId = subFlow(signTransactionFlow).id
 
             progressTracker.currentStep = RECEIVING_FINALISED_TRANSACTION
 

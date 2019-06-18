@@ -118,8 +118,8 @@ class EndGameFlowTest {
         finalSignedTx.sigs.map { it.by }.toSet().also {
             assertTrue(it.contains(player1.owningKey))
             assertTrue(it.contains(player2.owningKey))
-            assertFalse(it.contains(player3.owningKey))
-            assertFalse(it.contains(player4.owningKey))
+            assertTrue(it.contains(player3.owningKey))
+            assertTrue(it.contains(player4.owningKey))
         }
     }
 
