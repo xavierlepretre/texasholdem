@@ -2,11 +2,15 @@ package org.cordacodeclub.bluff.state
 
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.ContractState
+import net.corda.core.contracts.LinearState
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.AbstractParty
 import net.corda.core.serialization.CordaSerializable
 import org.cordacodeclub.bluff.contract.GameContract
 
+/**
+ * TODO make it a [LinearState]
+ */
 @BelongsToContract(GameContract::class)
 data class GameState(
     val players: List<ActivePlayer>,
@@ -28,13 +32,13 @@ data class GameState(
 }
 
 @CordaSerializable
-enum class BettingRound(val communityCardsAmount: Int) {
-    BLIND_BET(0), //Initial Blind bet setup
-    PRE_FLOP(0),  //First round of betting
-    FLOP(3),      //Three community cards places in the middle face up
-    TURN(4),      //Fourth community card revealed
-    RIVER(5),     //Fifth community card reveled - final round
-    END(5);       //Evaluation round to select the winner
+enum class BettingRound(val communityCardsCount: Int) {
+    BLIND_BET(0), // Initial blind bet setup
+    PRE_FLOP(0), // First round of betting with player cards
+    FLOP(3), // Three community cards placed in the middle face up
+    TURN(4), // Fourth community card revealed
+    RIVER(5), // Fifth community card revealed - final round
+    END(5); // Evaluation round to select the winner
 
     //To return next element
     fun next(): BettingRound {

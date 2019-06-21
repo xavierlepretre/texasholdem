@@ -30,7 +30,7 @@ class PlayerResponseCollectingByPollerFlow(
         object WAITING : ProgressTracker.Step("Waiting for answer.")
         object ANSWERING : ProgressTracker.Step("Returning human answer.")
 
-        val TYPICAL_DURATION = 5000L
+        val TYPICAL_DURATION = 5_000L
     }
 
     private fun tracker() = ProgressTracker(SAVING, WAITING, ANSWERING)
@@ -44,18 +44,20 @@ class PlayerResponseCollectingByPollerFlow(
         val playerDatabaseService = serviceHub.cordaService(PlayerDatabaseService::class.java)
         val me = serviceHub.myInfo.legalIdentities.first()
         progressTracker.currentStep = SAVING
-        insertedRequest = try { playerDatabaseService.addActionRequest(
-            ActionRequest(
-                id = 0L,
-                player = me.name,
-                cards = request.yourCards.map { it.card },
-                cardHashes = MerkleTree.getMerkleTree(request.cardHashes).hash,
-                youBet = request.yourWager,
-                lastRaise = request.lastRaise,
-                playerAction = null,
-                addAmount = 0L
+        insertedRequest = try {
+            playerDatabaseService.addActionRequest(
+                ActionRequest(
+                    id = 0L,
+                    player = me.name,
+                    cards = request.yourCards.map { it.card },
+                    cardHashes = MerkleTree.getMerkleTree(request.cardHashes).hash,
+                    youBet = request.yourWager,
+                    lastRaise = request.lastRaise,
+                    playerAction = null,
+                    addAmount = 0L
+                )
             )
-        ) } catch(e : Exception) {
+        } catch (e: Exception) {
             println(e)
             throw e
         }.also {
@@ -70,7 +72,9 @@ class PlayerResponseCollectingByPollerFlow(
         progressTracker.currentStep = ANSWERING
         return playerDatabaseService.getActionRequest(insertedRequest)!!
             .also {
-                try { playerDatabaseService.deleteActionRequest(it.id) } catch(e: Exception) {
+                try {
+                    playerDatabaseService.deleteActionRequest(it.id)
+                } catch (e: Exception) {
                     println(e)
                     throw e
                 }

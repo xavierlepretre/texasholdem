@@ -229,9 +229,7 @@ object EndGameFlow {
             object RECEIVING_REQUEST_FOR_STATE : ProgressTracker.Step("Receiving request for best player hand.")
             object SENDING_HAND_STATE : ProgressTracker.Step("Sending back hand state.")
             object SIGNING_TRANSACTION : ProgressTracker.Step("Signing transaction with our private key.") {
-                override fun childProgressTracker(): ProgressTracker {
-                    return SignTransactionFlow.tracker()
-                }
+                override fun childProgressTracker() = SignTransactionFlow.tracker()
             }
 
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")

@@ -11,7 +11,6 @@ import net.corda.core.utilities.ProgressTracker
 import org.cordacodeclub.bluff.contract.TokenContract
 import org.cordacodeclub.bluff.state.TokenState
 
-//Initial flow
 object MintTokenFlow {
 
     @InitiatingFlow
@@ -23,7 +22,8 @@ object MintTokenFlow {
      * @param countPerPlayer the number of states created for each player
      * @param amountPerState the number of token per state
      */
-    class Minter(val players: List<Party>, val countPerPlayer: Long, val amountPerState: Long) : FlowLogic<SignedTransaction>() {
+    class Minter(val players: List<Party>, val countPerPlayer: Long, val amountPerState: Long) :
+        FlowLogic<SignedTransaction>() {
 
         init {
             requireThat {
@@ -77,7 +77,14 @@ object MintTokenFlow {
             players.forEach { player ->
                 (1..countPerPlayer).forEach { _ ->
                     // We issue many tokens of 1 each to facilitate betting.
-                    txBuilder.addOutputState(TokenState(minter = minter, owner = player, amount = amountPerState, isPot = false))
+                    txBuilder.addOutputState(
+                        TokenState(
+                            minter = minter,
+                            owner = player,
+                            amount = amountPerState,
+                            isPot = false
+                        )
+                    )
                 }
             }
 
@@ -108,9 +115,7 @@ object MintTokenFlow {
         companion object {
             object RECEIVING_FINALISED_TRANSACTION : ProgressTracker.Step("Receiving finalised transaction.")
 
-            fun tracker() = ProgressTracker(
-                RECEIVING_FINALISED_TRANSACTION
-            )
+            fun tracker() = ProgressTracker(RECEIVING_FINALISED_TRANSACTION)
         }
 
         override val progressTracker: ProgressTracker = tracker()
