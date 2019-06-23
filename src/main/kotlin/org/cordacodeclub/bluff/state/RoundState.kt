@@ -1,0 +1,58 @@
+package org.cordacodeclub.bluff.state
+
+import net.corda.core.contracts.ContractState
+import net.corda.core.crypto.SecureHash
+import net.corda.core.identity.AbstractParty
+import net.corda.core.identity.Party
+import net.corda.core.serialization.CordaSerializable
+import org.cordacodeclub.bluff.player.PlayerAction
+import org.cordacodeclub.bluff.round.BettingRound
+
+@CordaSerializable
+data class RoundState(
+    val minter: Party,
+    val dealer: Party,
+    val deckRootHash: SecureHash,
+    val roundType: BettingRound,
+    val currentPlayerIndex: Int,
+    val players: List<PlayedAction>,
+    val lastRaiseIndex: Int,
+    val playerCountSinceLastRaise: Int
+) : ContractState {
+
+    init {
+        require(0 <= currentPlayerIndex) { "The currentPlayerIndex should be positive" }
+        require(currentPlayerIndex < players.size) { "The currentPlayerIndex should be less than players size" }
+        require(0 <= lastRaiseIndex) { "The lastRaiseIndex should be positive" }
+        require(MIN_PLAYER_COUNT <= players.size) { "There should be at least $MIN_PLAYER_COUNT players" }
+        require(lastRaiseIndex < players.size) { "The lastRaiseIndex should be less than players size" }
+        require(players[lastRaiseIndex].action != PlayerAction.Fold) { "The last raise player cannot be folded" }
+        require(!players.all { it.action == PlayerAction.Fold }) { "At least 1 player must not be folded" }
+        require(0 <= playerCountSinceLastRaise) { "The playerCountSinceLastRaise should be positive" }
+        require(playerCountSinceLastRaise <= players.size) {
+            "The output playerCountSinceLastRaise should be less than players size"
+        }
+        // TODO there can be only one block of Missing actions.
+    }
+
+    companion object {
+        val MIN_PLAYER_COUNT = 3;
+    }
+
+    override val participants: List<AbstractParty>
+        // TODO we could decide that folder players are no longer informed on the progress of the game
+        get() = players.map { it.player }.plus(dealer)
+
+    val currentPlayer = players[currentPlayerIndex].player
+    val lastRaisePlayer = players[lastRaiseIndex].player
+    val nextActivePlayerIndex by lazy {
+        var i = currentPlayerIndex
+        do i = (i + 1) % players.size
+        while (players[i].action == PlayerAction.Fold)
+        i
+    }
+    val nextActivePlayer by lazy { players[nextActivePlayerIndex].player }
+    val activePlayerCount by lazy { players.filter { it.action != PlayerAction.Fold }.size }
+    val isRoundDone = activePlayerCount == 1 ||
+            players.all { it.action == PlayerAction.Call || it.action == PlayerAction.Fold }
+}
