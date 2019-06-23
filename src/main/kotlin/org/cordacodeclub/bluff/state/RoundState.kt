@@ -1,14 +1,17 @@
 package org.cordacodeclub.bluff.state
 
+import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.ContractState
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.serialization.CordaSerializable
+import org.cordacodeclub.bluff.contract.OneStepContract
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.round.BettingRound
 
 @CordaSerializable
+@BelongsToContract(OneStepContract::class)
 data class RoundState(
     val minter: Party,
     val dealer: Party,

@@ -68,7 +68,6 @@ class TokenContract : Contract {
             }
 
             is Commands.BetToPot -> requireThat {
-                "There should be at least 2 players betting" using (inputSigners.toSet().size >= 2)
                 // There can be pot states in inputs if we are in a next round
                 "There should be no output TokenState when Betting" using (outputTokenCount == 0)
                 "There should be at least one output PotState when Betting" using (outputPotCount > 0)
