@@ -6,7 +6,6 @@ import net.corda.core.identity.Party
 import net.corda.core.internal.toMultiMap
 import net.corda.core.transactions.SignedTransaction
 import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 
 // This object is passed around after each player has acted

@@ -7,7 +7,7 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
 import org.cordacodeclub.bluff.state.AssignedCard
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.PlayerHandState
 import org.cordacodeclub.grom356.Card

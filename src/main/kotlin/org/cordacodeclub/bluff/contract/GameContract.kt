@@ -5,7 +5,7 @@ import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireSingleCommand
 import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 
 class GameContract : Contract {
@@ -22,8 +22,8 @@ class GameContract : Contract {
             is Commands.Create -> requireThat {
                 "There should be no input games" using (inputGames.isEmpty())
                 "There should be a single output game" using (outputGames.size == 1)
-                "The round bet status should be ${BettingRound.BLIND_BET}, but it was ${outputGames.single().bettingRound}" using
-                        (outputGames.single().bettingRound == BettingRound.BLIND_BET)
+                "The round bet status should be ${BettingRound.BLIND_BET_1}, but it was ${outputGames.single().bettingRound}" using
+                        (outputGames.single().bettingRound == BettingRound.BLIND_BET_1)
             }
 
             is Commands.CarryOn -> requireThat {

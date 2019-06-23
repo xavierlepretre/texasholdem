@@ -9,7 +9,7 @@ import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.StartedMockNode
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.player.PlayerDatabaseService
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.junit.After
 import org.junit.Before

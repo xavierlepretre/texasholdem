@@ -14,7 +14,7 @@ import org.cordacodeclub.bluff.player.DesiredAction
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.After
 import org.junit.Before

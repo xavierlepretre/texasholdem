@@ -13,7 +13,7 @@ import net.corda.testing.core.TestIdentity
 import org.cordacodeclub.bluff.round.CallOrRaiseResponse
 import org.cordacodeclub.bluff.round.DealerRoundAccumulator
 import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.TokenState
 import org.junit.Assert.assertEquals
 import org.junit.Test

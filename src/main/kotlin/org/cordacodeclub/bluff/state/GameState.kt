@@ -5,8 +5,8 @@ import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.LinearState
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.AbstractParty
-import net.corda.core.serialization.CordaSerializable
 import org.cordacodeclub.bluff.contract.GameContract
+import org.cordacodeclub.bluff.round.BettingRound
 
 /**
  * TODO make it a [LinearState]
@@ -28,24 +28,6 @@ data class GameState(
 //        require(hashedCards.foldIndexed(true) { index, allOk, hash ->
 //            allOk && (cards[index] == null || cards[index]!!.hash == hash)
 //        }) { "Non null cards need to be in the hashed list" }
-    }
-}
-
-@CordaSerializable
-enum class BettingRound(val communityCardsCount: Int) {
-    BLIND_BET(0), // Initial blind bet setup
-    PRE_FLOP(0), // First round of betting with player cards
-    FLOP(3), // Three community cards placed in the middle face up
-    TURN(4), // Fourth community card revealed
-    RIVER(5), // Fifth community card revealed - final round
-    END(5); // Evaluation round to select the winner
-
-    //To return next element
-    fun next(): BettingRound {
-        return (ordinal + 1).let { next ->
-            require(next < values().size) { "The last one has no next" }
-            values()[next]
-        }
     }
 }
 

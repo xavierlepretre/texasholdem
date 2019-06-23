@@ -21,7 +21,7 @@ import org.cordacodeclub.bluff.dealer.CardDeckDatabaseService
 import org.cordacodeclub.bluff.dealer.CardDeckInfo
 import org.cordacodeclub.bluff.dealer.IncompleteCardDeckInfo
 import org.cordacodeclub.bluff.state.ActivePlayer
-import org.cordacodeclub.bluff.state.BettingRound
+import org.cordacodeclub.bluff.round.BettingRound
 import org.cordacodeclub.bluff.state.GameState
 import org.cordacodeclub.bluff.state.TokenState
 
@@ -233,7 +233,7 @@ object BlindBetFlow {
                     // At this stage, we are hiding all cards
                     deckInfo.cards.map { it.hash },
                     deckInfo.cards.map { null },
-                    BettingRound.BLIND_BET,
+                    BettingRound.BLIND_BET_1,
                     BLIND_PLAYER_COUNT-1,
                     players.plus(dealer)
                 ),
