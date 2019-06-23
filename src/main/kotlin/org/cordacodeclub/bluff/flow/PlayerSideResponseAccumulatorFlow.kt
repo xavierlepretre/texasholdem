@@ -71,6 +71,7 @@ abstract class PlayerSideResponseAccumulatorFlow(val otherPartySession: FlowSess
                                 CallOrRaiseResponse(tokenStates, serviceHub)
                             }
                         }
+                        else -> throw NotImplementedError("Should not have ${userResponse.playerAction}")
                     }
                     val newAccumulator = accumulator.stepForwardWhenSending(request, response)
                     otherPartySession.send(response)

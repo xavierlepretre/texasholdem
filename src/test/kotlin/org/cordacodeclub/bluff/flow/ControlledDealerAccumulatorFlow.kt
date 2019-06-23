@@ -75,6 +75,7 @@ object ControlledDealerAccumulatorFlow {
                             serviceHub
                         )
                     }
+                    else -> throw NotImplementedError("Cannot be ${desiredAction.playerAction}")
                 }
                 otherPartySession.send(response)
             }
