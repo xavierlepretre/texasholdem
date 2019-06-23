@@ -27,8 +27,7 @@ class RoundStateTest {
     private val validState = RoundState(
         minter = minter0.party, dealer = dealer0.party,
         deckRootHash = SecureHash.zeroHash, roundType = BettingRound.BLIND_BET_1, currentPlayerIndex = 0,
-        players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing),
-        lastRaiseIndex = 0, playerCountSinceLastRaise = 0
+        players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing), lastRaiseIndex = 0
     )
 
     private fun withActions(action0: PlayerAction, action1: PlayerAction, action2: PlayerAction) =
@@ -80,6 +79,19 @@ class RoundStateTest {
     }
 
     @Test
+    fun `does not accept duplicate players`() {
+        assertFailsWith(IllegalArgumentException::class, "should be no duplicate player") {
+            validState.copy(
+                players = listOf(
+                    PlayedAction(player0.party, PlayerAction.Fold),
+                    PlayedAction(player0.party, PlayerAction.Call),
+                    PlayedAction(player2.party, PlayerAction.Call)
+                )
+            )
+        }
+    }
+
+    @Test
     fun `does not accept last raise index folded`() {
         assertFailsWith(IllegalArgumentException::class, "last raise player cannot be folded") {
             validState.copy(
@@ -97,23 +109,6 @@ class RoundStateTest {
         assertFailsWith(IllegalArgumentException::class, "At least 1 player must not be folded") {
             validState.copy(players = listOf(player0.party, player1.party)
                 .map { PlayedAction(it, PlayerAction.Fold) })
-        }
-    }
-
-    @Test
-    fun `does not accept negative playerCountSinceLastRaise`() {
-        assertFailsWith(IllegalArgumentException::class, "playerCountSinceLastRaise should be positive") {
-            validState.copy(playerCountSinceLastRaise = -1)
-        }
-    }
-
-    @Test
-    fun `does too large playerCountSinceLastRaise`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "playerCountSinceLastRaise should be less than players size"
-        ) {
-            validState.copy(playerCountSinceLastRaise = 4)
         }
     }
 

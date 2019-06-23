@@ -16,8 +16,7 @@ data class RoundState(
     val roundType: BettingRound,
     val currentPlayerIndex: Int,
     val players: List<PlayedAction>,
-    val lastRaiseIndex: Int,
-    val playerCountSinceLastRaise: Int
+    val lastRaiseIndex: Int
 ) : ContractState {
 
     init {
@@ -26,12 +25,9 @@ data class RoundState(
         require(0 <= lastRaiseIndex) { "The lastRaiseIndex should be positive" }
         require(MIN_PLAYER_COUNT <= players.size) { "There should be at least $MIN_PLAYER_COUNT players" }
         require(lastRaiseIndex < players.size) { "The lastRaiseIndex should be less than players size" }
+        require((players.map { it.player }.toSet().size == players.size)) { "There should be no duplicate player" }
         require(players[lastRaiseIndex].action != PlayerAction.Fold) { "The last raise player cannot be folded" }
         require(!players.all { it.action == PlayerAction.Fold }) { "At least 1 player must not be folded" }
-        require(0 <= playerCountSinceLastRaise) { "The playerCountSinceLastRaise should be positive" }
-        require(playerCountSinceLastRaise <= players.size) {
-            "The output playerCountSinceLastRaise should be less than players size"
-        }
         // TODO there can be only one block of Missing actions.
     }
 
@@ -40,7 +36,7 @@ data class RoundState(
     }
 
     override val participants: List<AbstractParty>
-        // TODO we could decide that folder players are no longer informed on the progress of the game
+        // TODO we could decide that folded players are no longer informed on the progress of the game
         get() = players.map { it.player }.plus(dealer)
 
     val currentPlayer = players[currentPlayerIndex].player
