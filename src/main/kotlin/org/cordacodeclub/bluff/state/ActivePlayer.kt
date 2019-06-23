@@ -12,3 +12,5 @@ data class ActivePlayer(val party: Party, val folded: Boolean) {
         fun from(parties: List<Party>) = parties.map { ActivePlayer(it) }
     }
 }
+
+fun List<ActivePlayer>.foldedParties() = filter { it.folded }.map { it.party }

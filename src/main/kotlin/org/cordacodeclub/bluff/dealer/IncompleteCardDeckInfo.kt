@@ -1,6 +1,7 @@
 package org.cordacodeclub.bluff.dealer
 
 import net.corda.core.crypto.SecureHash
+import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
 import org.cordacodeclub.bluff.state.AssignedCard
 
@@ -11,7 +12,7 @@ class IncompleteCardDeckInfo(
 ) : HashedCardDeckInfo(hashedCards) {
 
     val isComplete by lazy {
-        cards.all { it != null}
+        cards.all { it != null }
     }
 
     constructor(cardDeckInfo: CardDeckInfo) : this(
@@ -25,4 +26,12 @@ class IncompleteCardDeckInfo(
             all && (card == null || hashedCards[index] == card.hash)
         }) { "Non-null cards must hash correctly" }
     }
+
+    fun keepOnlyOfOwner(who: CordaX500Name) = IncompleteCardDeckInfo(
+        hashedCards,
+        cards.map {
+            if (it != null && it.owner == who) it
+            else null
+        }
+    )
 }

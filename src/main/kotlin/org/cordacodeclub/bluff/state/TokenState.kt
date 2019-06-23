@@ -5,6 +5,7 @@ import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.requireThat
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
+import net.corda.core.internal.toMultiMap
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
@@ -40,3 +41,10 @@ data class TokenState(
         }
     }
 }
+
+fun List<TokenState>.mapPartyToSum() = map { it.owner to it }
+    // List of tokens per owner
+    .toMultiMap()
+    // Reduce to the sum
+    .map { entry -> entry.key to entry.value.map { it.amount }.sum() }
+    .toMap()
