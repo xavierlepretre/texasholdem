@@ -3,7 +3,6 @@ package org.cordacodeclub.bluff.state
 import net.corda.core.crypto.SecureHash
 import net.corda.core.identity.CordaX500Name
 import net.corda.testing.core.TestIdentity
-import net.corda.testing.node.MockServices
 import org.cordacodeclub.bluff.player.PlayerAction
 import org.cordacodeclub.bluff.round.BettingRound
 import org.junit.Test
@@ -14,19 +13,15 @@ import kotlin.test.assertTrue
 
 class RoundStateTest {
 
-    private val ledgerServices = MockServices()
     private val minter0 = TestIdentity(CordaX500Name("Minter0", "London", "GB"))
-    private val minter1 = TestIdentity(CordaX500Name("Minter1", "Paris", "FR"))
     private val dealer0 = TestIdentity(CordaX500Name("Dealer0", "Madrid", "ES"))
-    private val dealer1 = TestIdentity(CordaX500Name("Dealer1", "Berlin", "DE"))
     private val player0 = TestIdentity(CordaX500Name("Player0", "Madrid", "ES"))
     private val player1 = TestIdentity(CordaX500Name("Player1", "Berlin", "DE"))
     private val player2 = TestIdentity(CordaX500Name("Player2", "Berlin", "DE"))
 
-    private val players = listOf(player0.party, player1.party, player2.party)
     private val validState = RoundState(
         minter = minter0.party, dealer = dealer0.party,
-        deckRootHash = SecureHash.zeroHash, roundType = BettingRound.BLIND_BET_1, currentPlayerIndex = 0,
+        deckRootHash = SecureHash.zeroHash, roundType = BettingRound.PRE_FLOP, currentPlayerIndex = 0,
         players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing), lastRaiseIndex = 0
     )
 
@@ -287,6 +282,8 @@ class RoundStateTest {
                 .isRoundDone
         )
 
+        assertTrue(validState.copy(roundType = BettingRound.BLIND_BET_1).isRoundDone)
+        assertTrue(validState.copy(roundType = BettingRound.BLIND_BET_2).isRoundDone)
         assertTrue(
             validState.copy(players = withActions(PlayerAction.Call, PlayerAction.Fold, PlayerAction.Call))
                 .isRoundDone

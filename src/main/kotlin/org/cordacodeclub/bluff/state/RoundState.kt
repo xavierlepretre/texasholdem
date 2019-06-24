@@ -53,5 +53,7 @@ data class RoundState(
     val nextActivePlayer by lazy { players[nextActivePlayerIndex].player }
     val activePlayerCount by lazy { players.filter { it.action != PlayerAction.Fold }.size }
     val isRoundDone = activePlayerCount == 1 ||
+            roundType == BettingRound.BLIND_BET_1 ||
+            roundType == BettingRound.BLIND_BET_2 ||
             players.all { it.action == PlayerAction.Call || it.action == PlayerAction.Fold }
 }
