@@ -18,18 +18,14 @@ data class RoundState(
     val deckRootHash: SecureHash,
     val roundType: BettingRound,
     val currentPlayerIndex: Int,
-    val players: List<PlayedAction>,
-    val lastRaiseIndex: Int
+    val players: List<PlayedAction>
 ) : ContractState {
 
     init {
         require(0 <= currentPlayerIndex) { "The currentPlayerIndex should be positive" }
         require(currentPlayerIndex < players.size) { "The currentPlayerIndex should be less than players size" }
-        require(0 <= lastRaiseIndex) { "The lastRaiseIndex should be positive" }
         require(MIN_PLAYER_COUNT <= players.size) { "There should be at least $MIN_PLAYER_COUNT players" }
-        require(lastRaiseIndex < players.size) { "The lastRaiseIndex should be less than players size" }
         require((players.map { it.player }.toSet().size == players.size)) { "There should be no duplicate player" }
-        require(players[lastRaiseIndex].action != PlayerAction.Fold) { "The last raise player cannot be folded" }
         require(!players.all { it.action == PlayerAction.Fold }) { "At least 1 player must not be folded" }
         // TODO there can be only one block of Missing actions.
     }
@@ -43,7 +39,6 @@ data class RoundState(
         get() = players.map { it.player }.plus(dealer)
 
     val currentPlayer = players[currentPlayerIndex].player
-    val lastRaisePlayer = players[lastRaiseIndex].player
     val nextActivePlayerIndex by lazy {
         var i = currentPlayerIndex
         do i = (i + 1) % players.size

@@ -37,8 +37,8 @@ class OneStepContractBetBlind1Test {
         deckRootHash = SecureHash.zeroHash,
         roundType = BettingRound.BLIND_BET_1,
         currentPlayerIndex = 1,
-        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Missing),
-        lastRaiseIndex = 1 // We take the middle player, = 0 would be too standard
+        // We take the middle player, = 0 would be too standard
+        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Missing)
     )
 
     private fun withActions(action0: PlayerAction, action1: PlayerAction, action2: PlayerAction) =
@@ -56,7 +56,7 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState1)
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 verifies()
             }
         }
@@ -71,7 +71,7 @@ class OneStepContractBetBlind1Test {
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("should be no input round state")
             }
         }
@@ -86,7 +86,7 @@ class OneStepContractBetBlind1Test {
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("should be a single output round state")
             }
         }
@@ -100,22 +100,8 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState1)
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State.copy(roundType = BettingRound.BLIND_BET_2))
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("round bet status should be ${BettingRound.BLIND_BET_1}")
-            }
-        }
-    }
-
-    @Test
-    fun `BetBlind1 transaction fails when the lastRaiseIndex is incorrect`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, tokenState1)
-                output(TokenContract.ID, potState1)
-                command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
-                output(OneStepContract.ID, validBlind1State.copy(lastRaiseIndex = 0))
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
-                failsWith("currentPlayerIndex should be the lastRaiseIndex")
             }
         }
     }
@@ -133,7 +119,7 @@ class OneStepContractBetBlind1Test {
                         players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing)
                     )
                 )
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("currentPlayerIndex should have a raise action")
             }
         }
@@ -152,7 +138,7 @@ class OneStepContractBetBlind1Test {
                         players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Missing)
                     )
                 )
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("other players should have a missing action")
             }
         }
@@ -167,7 +153,7 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState1.copy(amount = 40L))
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("should be no input pot tokens")
             }
         }
@@ -181,7 +167,7 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState0)
                 command(listOf(player0.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("should be output pot tokens for the player")
             }
         }
@@ -197,7 +183,7 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState2)
                 command(listOf(player1.publicKey, player2.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("should be no other output pot tokens")
             }
         }
@@ -211,7 +197,7 @@ class OneStepContractBetBlind1Test {
                 output(TokenContract.ID, potState1)
                 command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
-                command(listOf(player0.publicKey), OneStepContract.Commands.BetBlind1())
+                command(listOf(player0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("dealer should sign off the deckRootHash")
             }
         }

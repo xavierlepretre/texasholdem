@@ -135,8 +135,7 @@ object BlindBet1OneStepFlow {
                     currentPlayerIndex = players.indexOf(me),
                     players = players.map {
                         PlayedAction(it, if (it == me) PlayerAction.Raise else PlayerAction.Missing)
-                    },
-                    lastRaiseIndex = players.indexOf(me)
+                    }
                 ),
                 OneStepContract.ID
             )

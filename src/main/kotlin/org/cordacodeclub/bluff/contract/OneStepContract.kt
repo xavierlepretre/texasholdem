@@ -31,8 +31,6 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 "The round bet status should be ${BettingRound.BLIND_BET_1}, but it was ${outputRound.roundType}" using
                         (outputRound.roundType == BettingRound.BLIND_BET_1)
-                "The currentPlayerIndex should be the lastRaiseIndex" using
-                        (outputRound.currentPlayerIndex == outputRound.lastRaiseIndex)
                 "The currentPlayerIndex should have a raise action" using
                         (outputRound.players[outputRound.currentPlayerIndex].action == PlayerAction.Raise)
                 "The other players should have a missing action" using (outputRound.players.all {
@@ -56,9 +54,9 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 areConstantsConserved(inputRound, outputRound)
                 isProgressionValid(inputRound, outputRound)
-                "The previous round bet status should be ${BettingRound.BLIND_BET_1}, but it was ${inputRound.roundType}" using
+                "The previous round bet status should be ${BettingRound.BLIND_BET_1}, but it is ${inputRound.roundType}" using
                         (inputRound.roundType == BettingRound.BLIND_BET_1)
-                "The round bet status should be ${BettingRound.BLIND_BET_2}, but it was ${outputRound.roundType}" using
+                "The round bet status should be ${BettingRound.BLIND_BET_2}, but it is ${outputRound.roundType}" using
                         (outputRound.roundType == BettingRound.BLIND_BET_2)
                 "The other players should have a missing action" using (outputRound.players.all {
                     it.player == inputRound.currentPlayer ||
@@ -67,20 +65,20 @@ class OneStepContract : Contract {
                 })
                 val firstPlayerSum = inputPots[inputRound.currentPlayer]
                     ?: throw IllegalArgumentException("The first player should have bet a sum")
+                // TODO do we allow a fold here? What would this mean?
                 val secondPlayerSum = outputPots[outputRound.currentPlayer]
                     ?: throw IllegalArgumentException("The second player should have bet a sum")
                 // TODO what are the rules of the second blind bet?
                 "There should be no other output pot tokens" using (outputPots.size == 2)
                 "The second blind bet should be at or above the first" using (firstPlayerSum <= secondPlayerSum)
-                "The lastRaiseIndex should reflect whether there was a raise" using
-                        (outputRound.lastRaiseIndex ==
-                                if (firstPlayerSum == secondPlayerSum) inputRound.lastRaiseIndex
-                                else inputRound.nextActivePlayerIndex)
                 "The played action should reflect whether there was a raise" using
-                        (outputRound.players[outputRound.currentPlayerIndex].action.let {
-                            if (firstPlayerSum == secondPlayerSum) it == PlayerAction.Call
-                            else it == PlayerAction.Raise
-                        })
+                        (outputRound.players[outputRound.currentPlayerIndex].action ==
+                                if (firstPlayerSum == secondPlayerSum) PlayerAction.Call
+                                else PlayerAction.Raise
+                                )
+                // TODO this does double duty with the required token signature
+                "The currentPlayer should sign off the played action" using
+                        (command.signers.contains(outputRound.currentPlayer.owningKey))
             }
 
             else -> IllegalArgumentException("Unrecognised command $command")

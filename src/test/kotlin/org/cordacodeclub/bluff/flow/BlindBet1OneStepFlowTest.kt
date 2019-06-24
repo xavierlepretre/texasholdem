@@ -178,8 +178,7 @@ class BlindBet1OneStepFlowTest {
                     PlayedAction(player1, PlayerAction.Raise),
                     PlayedAction(player2, PlayerAction.Missing),
                     PlayedAction(player3, PlayerAction.Missing)
-                ),
-                lastRaiseIndex = 1
+                )
             ),
             outputs.single()
         )

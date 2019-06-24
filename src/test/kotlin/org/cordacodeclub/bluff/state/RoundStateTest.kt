@@ -22,7 +22,7 @@ class RoundStateTest {
     private val validState = RoundState(
         minter = minter0.party, dealer = dealer0.party,
         deckRootHash = SecureHash.zeroHash, roundType = BettingRound.PRE_FLOP, currentPlayerIndex = 0,
-        players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing), lastRaiseIndex = 0
+        players = withActions(PlayerAction.Missing, PlayerAction.Missing, PlayerAction.Missing)
     )
 
     private fun withActions(action0: PlayerAction, action1: PlayerAction, action2: PlayerAction) =
@@ -50,26 +50,9 @@ class RoundStateTest {
     }
 
     @Test
-    fun `does not accept negative lastRaiseIndex`() {
-        assertFailsWith(IllegalArgumentException::class, "lastRaiseIndex should be positive") {
-            validState.copy(lastRaiseIndex = -1)
-        }
-    }
-
-    @Test
     fun `does not accept too small player count`() {
         assertFailsWith(IllegalArgumentException::class, "There should be at least 3 players") {
             validState.copy(players = listOf(PlayedAction(player0.party, PlayerAction.Call)))
-        }
-    }
-
-    @Test
-    fun `does too large lastRaiseIndex`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "lastRaiseIndex should be less than players size"
-        ) {
-            validState.copy(lastRaiseIndex = 3)
         }
     }
 
@@ -80,19 +63,6 @@ class RoundStateTest {
                 players = listOf(
                     PlayedAction(player0.party, PlayerAction.Fold),
                     PlayedAction(player0.party, PlayerAction.Call),
-                    PlayedAction(player2.party, PlayerAction.Call)
-                )
-            )
-        }
-    }
-
-    @Test
-    fun `does not accept last raise index folded`() {
-        assertFailsWith(IllegalArgumentException::class, "last raise player cannot be folded") {
-            validState.copy(
-                players = listOf(
-                    PlayedAction(player0.party, PlayerAction.Fold),
-                    PlayedAction(player1.party, PlayerAction.Call),
                     PlayedAction(player2.party, PlayerAction.Call)
                 )
             )
@@ -123,13 +93,6 @@ class RoundStateTest {
     }
 
     @Test
-    fun `lastRaisePlayer is the correct one`() {
-        assertEquals(player0.party, validState.lastRaisePlayer)
-        assertEquals(player1.party, validState.copy(lastRaiseIndex = 1).lastRaisePlayer)
-        assertEquals(player2.party, validState.copy(lastRaiseIndex = 2).lastRaisePlayer)
-    }
-
-    @Test
     fun `nextActivePlayerIndex when no folded is the correct one`() {
         assertEquals(1, validState.nextActivePlayerIndex)
         assertEquals(2, validState.copy(currentPlayerIndex = 1).nextActivePlayerIndex)
@@ -139,7 +102,6 @@ class RoundStateTest {
     @Test
     fun `nextActivePlayerIndex when current is folded is the correct one`() {
         val folded0 = validState.copy(
-            lastRaiseIndex = 1,
             players = listOf(
                 PlayedAction(player0.party, PlayerAction.Fold),
                 PlayedAction(player1.party, PlayerAction.Call),
@@ -168,7 +130,6 @@ class RoundStateTest {
     @Test
     fun `nextActivePlayerIndex when 2 are folded is the correct one`() {
         val folded0 = validState.copy(
-            lastRaiseIndex = 2,
             players = listOf(
                 PlayedAction(player0.party, PlayerAction.Fold),
                 PlayedAction(player1.party, PlayerAction.Fold),
@@ -190,7 +151,6 @@ class RoundStateTest {
     @Test
     fun `nextActivePlayer when current is folded is the correct one`() {
         val folded0 = validState.copy(
-            lastRaiseIndex = 1,
             players = listOf(
                 PlayedAction(player0.party, PlayerAction.Fold),
                 PlayedAction(player1.party, PlayerAction.Call),
@@ -219,7 +179,6 @@ class RoundStateTest {
     @Test
     fun `nextActivePlayer when 2 are folded is the correct one`() {
         val folded0 = validState.copy(
-            lastRaiseIndex = 2,
             players = listOf(
                 PlayedAction(player0.party, PlayerAction.Fold),
                 PlayedAction(player1.party, PlayerAction.Fold),
@@ -289,10 +248,7 @@ class RoundStateTest {
                 .isRoundDone
         )
         assertTrue(
-            validState.copy(
-                players = withActions(PlayerAction.Fold, PlayerAction.Fold, PlayerAction.Call),
-                lastRaiseIndex = 2
-            )
+            validState.copy(players = withActions(PlayerAction.Fold, PlayerAction.Fold, PlayerAction.Call))
                 .isRoundDone
         )
         assertTrue(
@@ -304,10 +260,7 @@ class RoundStateTest {
                 .isRoundDone
         )
         assertTrue(
-            validState.copy(
-                players = withActions(PlayerAction.Fold, PlayerAction.Raise, PlayerAction.Fold),
-                lastRaiseIndex = 1
-            )
+            validState.copy(players = withActions(PlayerAction.Fold, PlayerAction.Raise, PlayerAction.Fold))
                 .isRoundDone
         )
     }

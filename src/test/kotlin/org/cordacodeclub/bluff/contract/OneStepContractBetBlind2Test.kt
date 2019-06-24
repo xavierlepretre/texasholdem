@@ -26,11 +26,11 @@ class OneStepContractBetBlind2Test {
     private val tokenState0 = TokenState(minter = minter0.party, owner = player0.party, amount = 10, isPot = false)
     private val tokenState1 = TokenState(minter = minter0.party, owner = player1.party, amount = 20, isPot = false)
     private val tokenState2 = TokenState(minter = minter0.party, owner = player2.party, amount = 30, isPot = false)
-    private val tokenState3 = TokenState(minter = minter0.party, owner = player3.party, amount = 30, isPot = false)
+    private val tokenState3 = TokenState(minter = minter0.party, owner = player3.party, amount = 40, isPot = false)
     private val potState0 = TokenState(minter = minter0.party, owner = player0.party, amount = 10, isPot = true)
     private val potState1 = TokenState(minter = minter0.party, owner = player1.party, amount = 20, isPot = true)
     private val potState2 = TokenState(minter = minter0.party, owner = player2.party, amount = 30, isPot = true)
-    private val potState3 = TokenState(minter = minter0.party, owner = player3.party, amount = 30, isPot = true)
+    private val potState3 = TokenState(minter = minter0.party, owner = player3.party, amount = 40, isPot = true)
 
     private val validBlind1State = RoundState(
         minter = minter0.party,
@@ -38,8 +38,8 @@ class OneStepContractBetBlind2Test {
         deckRootHash = SecureHash.zeroHash,
         roundType = BettingRound.BLIND_BET_1,
         currentPlayerIndex = 1,
-        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Missing),
-        lastRaiseIndex = 1 // We take the middle player, = 0 would be too standard
+        // We take the middle player, = 0 would be too standard
+        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Missing)
     )
     private val validBlind2State = RoundState(
         minter = minter0.party,
@@ -47,8 +47,7 @@ class OneStepContractBetBlind2Test {
         deckRootHash = SecureHash.zeroHash,
         roundType = BettingRound.BLIND_BET_2,
         currentPlayerIndex = 2,
-        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Call),
-        lastRaiseIndex = 1
+        players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Call)
     )
 
     private fun withActions(action0: PlayerAction, action1: PlayerAction, action2: PlayerAction) =
@@ -86,10 +85,7 @@ class OneStepContractBetBlind2Test {
                 input(OneStepContract.ID, validBlind1State)
                 output(
                     OneStepContract.ID, validBlind2State
-                        .copy(
-                            lastRaiseIndex = 2,
-                            players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Raise)
-                        )
+                        .copy(players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Raise))
                 )
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
                 verifies()
@@ -158,13 +154,15 @@ class OneStepContractBetBlind2Test {
                 output(TokenContract.ID, potState2.copy(amount = 20))
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(
-                    players = listOf(
-                        PlayedAction(player0.party, PlayerAction.Missing),
-                        PlayedAction(player1.party, PlayerAction.Raise),
-                        PlayedAction(notPlayer0.party, PlayerAction.Call)
+                output(
+                    OneStepContract.ID, validBlind2State.copy(
+                        players = listOf(
+                            PlayedAction(player0.party, PlayerAction.Missing),
+                            PlayedAction(player1.party, PlayerAction.Raise),
+                            PlayedAction(notPlayer0.party, PlayerAction.Call)
+                        )
                     )
-                ))
+                )
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
                 failsWith("player parties should not change")
             }
@@ -181,9 +179,12 @@ class OneStepContractBetBlind2Test {
                 output(TokenContract.ID, potState0.copy(amount = 20))
                 command(listOf(player0.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(
-                    currentPlayerIndex = 0,
-                    players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Missing)))
+                output(
+                    OneStepContract.ID, validBlind2State.copy(
+                        currentPlayerIndex = 0,
+                        players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Missing)
+                    )
+                )
                 command(listOf(player0.publicKey), OneStepContract.Commands.BetBlind2())
                 failsWith("new currentPlayerIndex should be the previously known as next")
             }
@@ -242,43 +243,6 @@ class OneStepContractBetBlind2Test {
     }
 
     @Test
-    fun `BetBlind2 transaction fails when the lastRaiseIndex is incorrect`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 20))
-                output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 20))
-                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(lastRaiseIndex = 2))
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("lastRaiseIndex should reflect whether there was a raise")
-            }
-        }
-
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2)
-                output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2)
-                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(
-                    OneStepContract.ID, validBlind2State
-                        .copy(
-                            lastRaiseIndex = 1,
-                            players = withActions(PlayerAction.Missing, PlayerAction.Raise, PlayerAction.Raise)
-                        )
-                )
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("lastRaiseIndex should reflect whether there was a raise")
-            }
-        }
-    }
-
-    @Test
     fun `BetBlind2 transaction fails when the currentPlayerIndex does not have a Call or Raise action`() {
         ledgerServices.ledger {
             transaction {
@@ -309,7 +273,7 @@ class OneStepContractBetBlind2Test {
                 output(TokenContract.ID, potState2)
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(lastRaiseIndex = 2))
+                output(OneStepContract.ID, validBlind2State)
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
                 failsWith("played action should reflect whether there was a raise")
             }
@@ -348,9 +312,11 @@ class OneStepContractBetBlind2Test {
                 output(TokenContract.ID, potState2.copy(amount = 20))
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(
-                    players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Call)
-                ))
+                output(
+                    OneStepContract.ID, validBlind2State.copy(
+                        players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Call)
+                    )
+                )
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
                 failsWith("other players should have a missing action")
             }
