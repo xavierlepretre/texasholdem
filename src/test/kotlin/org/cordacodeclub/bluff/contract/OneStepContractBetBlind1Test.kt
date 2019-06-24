@@ -153,7 +153,7 @@ class OneStepContractBetBlind1Test {
                     )
                 )
                 command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
-                failsWith("currentPlayerIndex should have a raise action, others missing")
+                failsWith("other players should have a missing action")
             }
         }
     }
