@@ -97,20 +97,16 @@ object BlindBet2OneStepFlow {
                 )
             )
             val tokenNotary = tokenStates.map { it.state.notary }.toSet().singleOrNull()
-                ?: throw FlowException("Did not collect tokens from a single notary")
+                ?: throw FlowException("Did not collect states from a single notary")
 
             progressTracker.currentStep = GENERATING_POT_STATES
-            val potStates = potTokens.map {
-                TokenState(
-                    minter = prevState.minter,
-                    owner = it.key,
-                    amount = it.value,
-                    isPot = true
-                )
-            }.plus(tokenStates.map { it.state.data.amount }.sum()
-                .let { sum ->
-                    tokenStates.first().state.data.copy(amount = sum, isPot = true)
-                })
+            val potStates = potTokens
+                .map {
+                    TokenState(minter = prevState.minter, owner = it.key, amount = it.value, isPot = true)
+                }.plus(tokenStates.map { it.state.data.amount }.sum()
+                    .let { sum ->
+                        tokenStates.first().state.data.copy(amount = sum, isPot = true)
+                    })
 
             val myAction =
                 if (smallBet < bigBet) PlayerAction.Raise

@@ -108,7 +108,7 @@ object BlindBet1OneStepFlow {
             )
 
             val notary = tokenStates.map { it.state.notary }.toSet().singleOrNull()
-                ?: throw FlowException("Did not collect tokens from a single notary")
+                ?: throw FlowException("Did not collect states from a single notary")
 
             progressTracker.currentStep = GENERATING_POT_STATES
             // We separate them to accommodate future owner tracking
