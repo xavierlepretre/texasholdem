@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -75,6 +76,36 @@ class BlindBet1OneStepFlowTest {
     }
 
     @Test
+    fun `Cannot create BlindBet1OneStepFlow with smallBet of 0`() {
+        assertFailsWith<IllegalArgumentException>("SmallBet should be strictly positive") {
+            BlindBet1OneStepFlow.Initiator(
+                players = listOf(player0, player1, player2, player3),
+                minter = minter, dealer = dealer, smallBet = 0
+            )
+        }
+    }
+
+    @Test
+    fun `Cannot create BlindBet1OneStepFlow with too few players`() {
+        assertFailsWith<IllegalArgumentException>("should be at least ${RoundState.MIN_PLAYER_COUNT} players") {
+            BlindBet1OneStepFlow.Initiator(
+                players = listOf(player0, player1),
+                minter = minter, dealer = dealer, smallBet = 4
+            )
+        }
+    }
+
+    @Test
+    fun `Cannot create BlindBet1OneStepFlow with dealer as a player`() {
+        assertFailsWith<IllegalArgumentException>("The dealer cannot play") {
+            BlindBet1OneStepFlow.Initiator(
+                players = listOf(player0, player1, dealer),
+                minter = minter, dealer = dealer, smallBet = 4
+            )
+        }
+    }
+
+    @Test
     fun `SignedTransaction is signed by blind bet player and dealer`() {
         val flow = BlindBet1OneStepFlow.Initiator(
             players = listOf(player0, player1, player2, player3),
@@ -91,6 +122,35 @@ class BlindBet1OneStepFlowTest {
             assertFalse(it.contains(player2.owningKey))
             assertFalse(it.contains(player3.owningKey))
         }
+    }
+
+    @Test
+    fun `Card deck is saved by dealer only on signing`() {
+        val flow = BlindBet1OneStepFlow.Initiator(
+            players = listOf(player0, player1, player2, player3),
+            minter = minter, dealer = dealer, smallBet = 4
+        )
+        val future = player1Node.startFlow(flow)
+        network.runNetwork(2)
+        val dealerFlow = dealerNode.findStateMachines<BlindBet1OneStepFlow.Responder>(
+            BlindBet1OneStepFlow.Responder::class.java
+        ).single()
+        // Are we past sending the deck back?
+        assertEquals(
+            BlindBet1OneStepFlow.Responder.Companion.SIGNING_TRANSACTION,
+            dealerFlow.first.progressTracker.currentStep
+        )
+        val deckRootHashesBefore = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }
+        // No deck saved yet
+        assertTrue(deckRootHashesBefore.isEmpty())
+        network.runNetwork()
+        val deckRootHashesAfter = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }
+        // Deck is now saved
+        assertTrue(deckRootHashesAfter.isNotEmpty())
     }
 
     @Test
@@ -127,10 +187,9 @@ class BlindBet1OneStepFlowTest {
         network.runNetwork()
 
         val signedTx = future.getOrThrow()
-        val pots = signedTx.tx.outputsOfType<TokenState>().map {
+        val pots = signedTx.tx.outputsOfType<TokenState>().onEach {
             assertEquals(minter, it.minter)
             assertEquals(player1, it.owner)
-            it
         }
         assertEquals(1, pots.size)
         assertEquals(4, pots[0].amount)

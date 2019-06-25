@@ -47,7 +47,7 @@ object BlindBet1OneStepFlow {
         FlowLogic<SignedTransaction>() {
 
         init {
-            require(smallBet > 0) { "SmallBet should not be 0" }
+            require(smallBet > 0) { "SmallBet should be strictly positive" }
             require(players.size >= RoundState.MIN_PLAYER_COUNT) {
                 "There should be at least ${RoundState.MIN_PLAYER_COUNT} players"
             }
@@ -206,9 +206,6 @@ object BlindBet1OneStepFlow {
         fun dealerResponse(request: CardDeckCreateRequest): SignedTransaction {
             progressTracker.currentStep = CREATING_CARD_DECK
             val deck = CardDeckInfo.createShuffledWith(request.players.map { it.name }, request.dealer.name)
-            serviceHub.cordaService(CardDeckDatabaseService::class.java).safeAddIncompleteDeck(
-                IncompleteCardDeckInfo(deck)
-            )
             otherPartySession.send(deck.rootHash)
 
             progressTracker.currentStep = SIGNING_TRANSACTION
@@ -222,6 +219,11 @@ object BlindBet1OneStepFlow {
                         "The players should be the same as in the request" using
                                 (request.players.toSet() == state.players.map { it.player }.toSet())
                         "We should have our created deck" using (state.deckRootHash == deck.rootHash)
+                        // Only now do we save the deck as we are signing
+                        serviceHub.cordaService(CardDeckDatabaseService::class.java).safeAddIncompleteDeck(
+                            IncompleteCardDeckInfo(deck)
+                        )
+                        Unit
                     }
                 }
             return subFlow(signTransactionFlow)
