@@ -168,7 +168,7 @@ class OneStepContractBetBlind1Test {
                 command(listOf(player0.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
                 command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
-                failsWith("should be output pot tokens for the player")
+                failsWith("Only the player should bet tokens")
             }
         }
     }
@@ -184,7 +184,7 @@ class OneStepContractBetBlind1Test {
                 command(listOf(player1.publicKey, player2.publicKey), TokenContract.Commands.BetToPot())
                 output(OneStepContract.ID, validBlind1State)
                 command(listOf(dealer0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
-                failsWith("should be no other output pot tokens")
+                failsWith("Only the player should bet tokens")
             }
         }
     }
@@ -199,6 +199,20 @@ class OneStepContractBetBlind1Test {
                 output(OneStepContract.ID, validBlind1State)
                 command(listOf(player0.publicKey, player1.publicKey), OneStepContract.Commands.BetBlind1())
                 failsWith("dealer should sign off the deckRootHash")
+            }
+        }
+    }
+
+    @Test
+    fun `BetBlind1 transaction fails when the player did not sign off`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, tokenState1)
+                output(TokenContract.ID, potState1)
+                command(listOf(player1.publicKey), TokenContract.Commands.BetToPot())
+                output(OneStepContract.ID, validBlind1State)
+                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind1())
+                failsWith("currentPlayer should sign off the played action")
             }
         }
     }

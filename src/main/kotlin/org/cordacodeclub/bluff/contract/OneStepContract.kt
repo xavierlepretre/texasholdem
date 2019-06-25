@@ -21,6 +21,7 @@ class OneStepContract : Contract {
         val command = tx.commands.requireSingleCommand<Commands>()
         val inputRounds = tx.inputsOfType<RoundState>()
         val outputRounds = tx.outputsOfType<RoundState>()
+        val inputTokens = tx.inputsOfType<TokenState>().filter { !it.isPot }.mapPartyToSum()
         val inputPots = tx.inputsOfType<TokenState>().filter { it.isPot }.mapPartyToSum()
         val outputPots = tx.outputsOfType<TokenState>().filter { it.isPot }.mapPartyToSum()
 
@@ -31,6 +32,7 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 "The round bet status should be ${BettingRound.BLIND_BET_1}, but it was ${outputRound.roundType}" using
                         (outputRound.roundType == BettingRound.BLIND_BET_1)
+                "Only the player should bet tokens" using (inputTokens.keys == setOf(outputRound.currentPlayer))
                 "The currentPlayerIndex should have a raise action" using
                         (outputRound.players[outputRound.currentPlayerIndex].action == PlayerAction.Raise)
                 "The other players should have a missing action" using (outputRound.players.all {
@@ -58,6 +60,7 @@ class OneStepContract : Contract {
                         (inputRound.roundType == BettingRound.BLIND_BET_1)
                 "The round bet status should be ${BettingRound.BLIND_BET_2}, but it is ${outputRound.roundType}" using
                         (outputRound.roundType == BettingRound.BLIND_BET_2)
+                "Only the player should bet tokens" using (inputTokens.keys == setOf(outputRound.currentPlayer))
                 "The other players should have a missing action" using (outputRound.players.all {
                     it.player == inputRound.currentPlayer ||
                             it.player == outputRound.currentPlayer ||
@@ -69,7 +72,10 @@ class OneStepContract : Contract {
                 val secondPlayerSum = outputPots[outputRound.currentPlayer]
                     ?: throw IllegalArgumentException("The second player should have bet a sum")
                 // TODO what are the rules of the second blind bet?
-                "There should be no other output pot tokens" using (outputPots.size == 2)
+                "There should be no other output pot tokens" using (outputPots.keys == setOf(
+                    inputRound.currentPlayer,
+                    outputRound.currentPlayer
+                ))
                 "The second blind bet should be at or above the first" using (firstPlayerSum <= secondPlayerSum)
                 "The played action should reflect whether there was a raise" using
                         (outputRound.players[outputRound.currentPlayerIndex].action ==

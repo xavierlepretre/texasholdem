@@ -350,7 +350,7 @@ class OneStepContractBetBlind2Test {
                 input(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind2State)
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("second player should have bet a sum")
+                failsWith("Only the player should bet tokens")
             }
         }
     }
@@ -369,7 +369,24 @@ class OneStepContractBetBlind2Test {
                 input(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind2State)
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("should be no other output pot tokens")
+                failsWith("Only the player should bet tokens")
+            }
+        }
+    }
+
+    @Test
+    fun `BetBlind2 transaction fails when the player did not sign off`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State)
+                output(OneStepContract.ID, validBlind2State)
+                command(listOf(player1.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("currentPlayer should sign off the played action")
             }
         }
     }
