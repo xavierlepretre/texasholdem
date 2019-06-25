@@ -163,14 +163,14 @@ class BlindBet1OneStepFlowTest {
         val signedTx = future.getOrThrow()
         val outputs = signedTx.tx.outputsOfType<RoundState>()
         assertEquals(1, outputs.size)
-        val deck = dealerNode.transaction {
+        val deckRootHash = dealerNode.transaction {
             dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
-        }
+        }.single()
         assertEquals(
             RoundState(
                 minter = minter,
                 dealer = dealer,
-                deckRootHash = deck.single(),
+                deckRootHash = deckRootHash,
                 roundType = BettingRound.BLIND_BET_1,
                 currentPlayerIndex = 1,
                 players = listOf(

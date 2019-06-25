@@ -125,7 +125,7 @@ object BlindBet1OneStepFlow {
             tokenStates.forEach { txBuilder.addInputState(it) }
             txBuilder.addOutputState(potState, TokenContract.ID)
 
-            txBuilder.addCommand(Command(OneStepContract.Commands.BetBlind1(), listOf(dealer.owningKey)))
+            txBuilder.addCommand(Command(OneStepContract.Commands.BetBlind1(), listOf(dealer.owningKey, me.owningKey)))
             txBuilder.addOutputState(
                 RoundState(
                     minter = minter,
