@@ -1,6 +1,8 @@
 package org.cordacodeclub.bluff.flow
 
 import net.corda.core.contracts.ContractState
+import net.corda.core.crypto.SecureHash
+import net.corda.core.flows.FlowException
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
@@ -19,8 +21,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -80,6 +82,61 @@ class BlindBet2OneStepFlowTest {
     @After
     fun tearDown() {
         network.stopNodes()
+    }
+
+    @Test
+    fun `Cannot create BlindBet2OneStepFlow with bigBet of 0`() {
+        assertFailsWith<FlowException>("BigBet should be strictly positive") {
+            BlindBet2OneStepFlow.Initiator(blindBet1Tx.id, 0)
+        }
+    }
+
+    @Test
+    fun `BlindBet2OneStepFlow fails with unknown transaction id`() {
+        val flow = BlindBet2OneStepFlow.Initiator(SecureHash.zeroHash, 4)
+        val future = player1Node.startFlow(flow)
+        network.runNetwork()
+        assertFailsWith<FlowException>("Transaction cannot be found") {
+            future.getOrThrow()
+        }
+    }
+
+    @Test
+    fun `BlindBet2OneStepFlow fails with wrong transaction type`() {
+        val flow = BlindBet2OneStepFlow.Initiator(mintTx.id, 4)
+        val future = player1Node.startFlow(flow)
+        network.runNetwork()
+        assertFailsWith<FlowException>("RoundState not found or double in transaction") {
+            future.getOrThrow()
+        }
+    }
+
+    @Test
+    fun `BlindBet2OneStepFlow fails when started from wrong player`() {
+        val flow = BlindBet2OneStepFlow.Initiator(blindBet1Tx.id, 4)
+        val future = player2Node.startFlow(flow)
+        network.runNetwork()
+        assertFailsWith<FlowException>("Next player index is 1, not me") {
+            future.getOrThrow()
+        }
+    }
+
+    @Test
+    fun `BlindBet2OneStepFlow fails with wrong roundType in previous transaction`() {
+        val prevFlow = BlindBet2OneStepFlow.Initiator(blindBet1Tx.id, 8)
+        val prevFuture = player1Node.startFlow(prevFlow)
+        network.runNetwork()
+
+        val signedTx = prevFuture.getOrThrow()
+        val flow = BlindBet2OneStepFlow.Initiator(signedTx.id, 4)
+        val future = player1Node.startFlow(flow)
+        network.runNetwork()
+        assertFailsWith<FlowException>(
+            "Previous roundType should be ${BettingRound.BLIND_BET_1} " +
+                    "not ${BettingRound.BLIND_BET_2}"
+        ) {
+            future.getOrThrow()
+        }
     }
 
     @Test

@@ -34,7 +34,7 @@ object BlindBet2OneStepFlow {
         FlowLogic<SignedTransaction>() {
 
         init {
-            require(bigBet > 0) { "BigBet should not be 0" }
+            if (bigBet <= 0) throw FlowException("BigBet should be strictly positive")
         }
 
         companion object {
@@ -75,15 +75,19 @@ object BlindBet2OneStepFlow {
             val prevStateRef = blindBet1Tx.coreTransaction.outRefsOfType<RoundState>().singleOrNull()
                 ?: throw FlowException("RoundState not found or double in transaction")
             val prevState = prevStateRef.state.data
+            if (me != prevState.nextActivePlayer) {
+                throw FlowException("Next player index is ${prevState.nextActivePlayer}, not me")
+            }
             val potTokens = blindBet1Tx.coreTransaction
                 .outputsOfType<TokenState>().filter { it.isPot }
                 .mapPartyToSum()
-            require(prevState.roundType == BettingRound.BLIND_BET_1) {
+            if (prevState.roundType != BettingRound.BLIND_BET_1) throw FlowException(
                 "Previous roundType should be ${BettingRound.BLIND_BET_1} not ${prevState.roundType}"
-            }
+            )
+
             val smallBet = potTokens.values.singleOrNull()
                 ?: throw FlowException("There should be a single bettor of tokens")
-            require(smallBet <= bigBet) { "bigBet should be at least $smallBet" }
+            if (bigBet < smallBet) throw FlowException("bigBet should be at least $smallBet")
 
             progressTracker.currentStep = COLLECTING_TOKENS
             val tokenStates = subFlow(
@@ -96,7 +100,6 @@ object BlindBet2OneStepFlow {
                 ?: throw FlowException("Did not collect tokens from a single notary")
 
             progressTracker.currentStep = GENERATING_POT_STATES
-            // We separate them to accommodate future owner tracking
             val potStates = potTokens.map {
                 TokenState(
                     minter = prevState.minter,
@@ -120,7 +123,7 @@ object BlindBet2OneStepFlow {
 
             progressTracker.currentStep = GENERATING_TRANSACTION
             val notary = blindBet1Tx.notary ?: tokenNotary
-            require(notary == tokenNotary) { "Tokens and blindBet1Tx do not have the same notary" }
+            if (notary != tokenNotary) throw FlowException("Tokens and blindBet1Tx do not have the same notary")
             val txBuilder = TransactionBuilder(notary = notary)
 
             txBuilder.addCommand(Command(TokenContract.Commands.BetToPot(), me.owningKey))

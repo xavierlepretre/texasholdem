@@ -1,6 +1,7 @@
 package org.cordacodeclub.bluff.flow
 
 import net.corda.core.contracts.ContractState
+import net.corda.core.flows.FlowException
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
@@ -77,7 +78,7 @@ class BlindBet1OneStepFlowTest {
 
     @Test
     fun `Cannot create BlindBet1OneStepFlow with smallBet of 0`() {
-        assertFailsWith<IllegalArgumentException>("SmallBet should be strictly positive") {
+        assertFailsWith<FlowException>("SmallBet should be strictly positive") {
             BlindBet1OneStepFlow.Initiator(
                 players = listOf(player0, player1, player2, player3),
                 minter = minter, dealer = dealer, smallBet = 0
@@ -87,7 +88,7 @@ class BlindBet1OneStepFlowTest {
 
     @Test
     fun `Cannot create BlindBet1OneStepFlow with too few players`() {
-        assertFailsWith<IllegalArgumentException>("should be at least ${RoundState.MIN_PLAYER_COUNT} players") {
+        assertFailsWith<FlowException>("should be at least ${RoundState.MIN_PLAYER_COUNT} players") {
             BlindBet1OneStepFlow.Initiator(
                 players = listOf(player0, player1),
                 minter = minter, dealer = dealer, smallBet = 4
@@ -97,7 +98,7 @@ class BlindBet1OneStepFlowTest {
 
     @Test
     fun `Cannot create BlindBet1OneStepFlow with dealer as a player`() {
-        assertFailsWith<IllegalArgumentException>("The dealer cannot play") {
+        assertFailsWith<FlowException>("The dealer cannot play") {
             BlindBet1OneStepFlow.Initiator(
                 players = listOf(player0, player1, dealer),
                 minter = minter, dealer = dealer, smallBet = 4

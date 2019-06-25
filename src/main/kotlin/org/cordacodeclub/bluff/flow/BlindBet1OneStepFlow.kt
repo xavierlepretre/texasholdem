@@ -47,11 +47,10 @@ object BlindBet1OneStepFlow {
         FlowLogic<SignedTransaction>() {
 
         init {
-            require(smallBet > 0) { "SmallBet should be strictly positive" }
-            require(players.size >= RoundState.MIN_PLAYER_COUNT) {
-                "There should be at least ${RoundState.MIN_PLAYER_COUNT} players"
-            }
-            require(!players.contains(dealer)) { "The dealer cannot play" }
+            if (smallBet <= 0) throw FlowException("SmallBet should be strictly positive")
+            if (players.size < RoundState.MIN_PLAYER_COUNT)
+                throw FlowException("There should be at least ${RoundState.MIN_PLAYER_COUNT} players")
+            if (players.contains(dealer)) throw FlowException("The dealer cannot play")
         }
 
         companion object {
