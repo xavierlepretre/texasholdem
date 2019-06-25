@@ -87,6 +87,45 @@ class OneStepContract : Contract {
                         (command.signers.contains(outputRound.currentPlayer.owningKey))
             }
 
+            is Commands.Play -> requireThat {
+                "There should be one input round state" using (inputRounds.size == 1)
+                "There should be one output round state" using (outputRounds.size == 1)
+                val inputRound = inputRounds.single()
+                val outputRound = outputRounds.single()
+                areConstantsConserved(inputRound, outputRound)
+                isProgressionValid(inputRound, outputRound)
+                "The previous round bet status should not be ${inputRound.roundType}" using
+                        (inputRound.roundType.let {
+                            it == BettingRound.BLIND_BET_2 || (it != BettingRound.RIVER && it.isPlay)
+                        })
+                "The round bet status should be a play one" using (outputRound.roundType.isPlay)
+                "Only the player should bet tokens" using (inputTokens.keys.let {
+                    it.size == 0 || it == setOf(outputRound.currentPlayer)
+                })
+                val lastRaiseSum = inputPots.values.max()
+                    ?: throw IllegalArgumentException("There should have been sums bet")
+                when (val action = outputRound.players[outputRound.currentPlayerIndex].action) {
+                    PlayerAction.Missing -> throw IllegalArgumentException(
+                        "The currentPlayer should not have Missing action"
+                    )
+                    PlayerAction.Fold -> "A folding player should not add tokens" using
+                            (inputTokens[outputRound.currentPlayer] == null)
+                    PlayerAction.Call, PlayerAction.Raise -> {
+                        val currentPlayerSum = outputPots[outputRound.currentPlayer]
+                            ?: throw IllegalArgumentException("The currentPlayer should have bet a sum")
+                        "The sum should be at least the required one on Call or Raise" using
+                                (lastRaiseSum <= currentPlayerSum)
+                        "The played action should reflect whether there was a raise" using
+                                (action ==
+                                        if (lastRaiseSum == currentPlayerSum) PlayerAction.Call
+                                        else PlayerAction.Raise)
+
+                    }
+                }
+                "The currentPlayer should sign off the played action" using
+                        (command.signers.contains(outputRound.currentPlayer.owningKey))
+            }
+
             else -> IllegalArgumentException("Unrecognised command $command")
         }
     }
@@ -111,10 +150,24 @@ class OneStepContract : Contract {
                 (input.players[output.currentPlayerIndex].action != PlayerAction.Fold)
         "The new currentPlayerIndex should be the previously known as next" using
                 (input.nextActivePlayerIndex == output.currentPlayerIndex)
+        val isStartingNewPlayRound = input.roundType != output.roundType && output.roundType.isPlay
+        "Only the currentPlayer should have a new move, unless it is a recurring roundType" using
+                (!isStartingNewPlayRound ||
+                        output.players.foldIndexed(true) { index, all, it ->
+                            all && (it.player == output.currentPlayer ||
+                                    output.players[index].action == PlayerAction.Missing)
+                        })
+        "On a new Play betting round, only one player has not a missing action" using
+                (!isStartingNewPlayRound ||
+                        output.players.all {
+                            if (it.player == output.currentPlayer) it.action != PlayerAction.Missing
+                            else it.action == PlayerAction.Missing
+                        })
     }
 
     interface Commands : CommandData {
         class BetBlind1 : Commands
         class BetBlind2 : Commands
+        class Play : Commands
     }
 }

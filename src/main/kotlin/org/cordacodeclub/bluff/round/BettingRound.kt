@@ -4,15 +4,18 @@ import net.corda.core.serialization.CordaSerializable
 import org.cordacodeclub.bluff.dealer.HashedCardDeckInfo
 
 @CordaSerializable
-enum class BettingRound(val communityCardsCount: Int) {
+/**
+ * @param isPlay Whether the round accepts multiple transactions.
+ */
+enum class BettingRound(val communityCardsCount: Int, val isPlay: Boolean) {
 
-    BLIND_BET_1(0), // First blind bet setup
-    BLIND_BET_2(0), // Second blind bet setup
-    PRE_FLOP(0), // First round of betting with player cards
-    FLOP(3), // Three community cards placed in the middle face up
-    TURN(4), // Fourth community card revealed
-    RIVER(5), // Fifth community card revealed - final round
-    END(5); // Evaluation round to select the winner
+    BLIND_BET_1(0, false), // First blind bet setup
+    BLIND_BET_2(0, false), // Second blind bet setup
+    PRE_FLOP(0, true), // First round of betting with player cards
+    FLOP(3, true), // Three community cards placed in the middle face up
+    TURN(4, true), // Fourth community card revealed
+    RIVER(5, true), // Fifth community card revealed - final round
+    END(5, false); // Evaluation round to select the winner
 
     init {
         require(communityCardsCount <= HashedCardDeckInfo.COMMUNITY_CARDS_COUNT) {
