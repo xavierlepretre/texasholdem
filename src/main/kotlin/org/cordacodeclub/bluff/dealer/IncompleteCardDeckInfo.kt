@@ -15,6 +15,10 @@ class IncompleteCardDeckInfo(
         cards.all { it != null }
     }
 
+    val isEmpty by lazy {
+        cards.all { it == null }
+    }
+
     constructor(cardDeckInfo: CardDeckInfo) : this(
         cardDeckInfo.hashedCards,
         cardDeckInfo.cards.map { it }
@@ -27,6 +31,12 @@ class IncompleteCardDeckInfo(
         }) { "Non-null cards must hash correctly" }
     }
 
+    companion object {
+        fun withNullCards(deck: CardDeckInfo) = IncompleteCardDeckInfo(
+            deck.hashedCards,
+            (0 until HashedCardDeckInfo.DECK_SIZE).map { null as AssignedCard? })
+    }
+
     fun keepOnlyOfOwner(who: CordaX500Name) = IncompleteCardDeckInfo(
         hashedCards,
         cards.map {
@@ -34,4 +44,21 @@ class IncompleteCardDeckInfo(
             else null
         }
     )
+
+    fun revealOwnedCards(fullDeck: CardDeckInfo, owner: CordaX500Name, count: Int): IncompleteCardDeckInfo {
+        var remaining = count
+        return IncompleteCardDeckInfo(
+            hashedCards,
+            cards.mapIndexed { index, card ->
+                if (0 < remaining && fullDeck.cards[index].owner == owner) {
+                    remaining--
+                    fullDeck.cards[index]
+                } else {
+                    card
+                }
+            }.also {
+                require(remaining == 0) { "Could only reveal ${count - remaining} cards, not $count" }
+            })
+    }
+
 }

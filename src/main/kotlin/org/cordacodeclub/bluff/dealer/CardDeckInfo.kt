@@ -42,19 +42,5 @@ data class CardDeckInfo(val cards: List<AssignedCard>) : HashedCardDeckInfo(card
     }
 }
 
-fun List<AssignedCard?>.revealOwnerCards(deck: CardDeckInfo, player: CordaX500Name, count: Int): List<AssignedCard?> {
-    var remaining = count
-    return mapIndexed { index, card ->
-        if (0 < remaining && deck.cards[index].owner == player) {
-            remaining--
-            deck.cards[index]
-        } else {
-            card
-        }
-    }.also {
-        require(remaining == 0) { "Could only reveal ${count - remaining} cards, not $count" }
-    }
-}
-
 // TODO Add functions to check player cards with their positions in merkle root
 
