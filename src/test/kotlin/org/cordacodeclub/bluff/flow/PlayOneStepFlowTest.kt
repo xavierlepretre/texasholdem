@@ -166,6 +166,29 @@ class PlayOneStepFlowTest {
     }
 
     @Test
+    fun `PlayOneStepFlow fails if there is no next roundType`() {
+        val signedTx = blindBet2Tx
+            // Entering Pre_Flop
+            .thenPlay(player2Node, PlayerAction.Fold, 0)
+            .thenPlay(player3Node, PlayerAction.Fold, 0)
+            .thenPlay(player0Node, PlayerAction.Call, 0)
+            .thenPlay(player1Node, PlayerAction.Call, 0)
+            // Entering Flop
+            .thenPlay(player0Node, PlayerAction.Call, 0)
+            .thenPlay(player1Node, PlayerAction.Call, 0)
+            // Entering Turn
+            .thenPlay(player0Node, PlayerAction.Call, 0)
+            .thenPlay(player1Node, PlayerAction.Call, 0)
+            // Entering River
+            .thenPlay(player0Node, PlayerAction.Call, 0)
+            .thenPlay(player1Node, PlayerAction.Call, 0)
+
+        assertFailsWith<FlowException>("It is not possible to play this round") {
+            signedTx.thenPlay(player0Node, PlayerAction.Call, 0)
+        }
+    }
+
+    @Test
     fun `PlayOneStepFlow fails with wrong roundType in previous transaction`() {
         val flow = PlayOneStepFlow.Initiator(blindBet1Tx.id, PlayerAction.Raise, 8)
         val future = player1Node.startFlow(flow)

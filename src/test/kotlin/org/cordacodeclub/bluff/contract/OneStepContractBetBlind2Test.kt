@@ -237,7 +237,7 @@ class OneStepContractBetBlind2Test {
                 input(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind2State.copy(roundType = BettingRound.BLIND_BET_1))
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("round bet status should be ${BettingRound.BLIND_BET_2}")
+                failsWith("The expected next round type is not there")
             }
         }
     }

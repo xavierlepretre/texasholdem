@@ -89,9 +89,8 @@ object PlayOneStepFlow {
             val potTokens = previousStepTx.coreTransaction
                 .outputsOfType<TokenState>().filter { it.isPot }
                 .mapPartyToSum()
-            val thisRoundType =
-                if (prevState.isRoundDone) prevState.roundType.next()
-                else prevState.roundType
+            val thisRoundType = prevState.nextRoundTypeOrNull
+                ?: throw FlowException("It is not possible to play this round")
             if (!thisRoundType.isPlay) throw FlowException("This flow does not work for $thisRoundType")
             if (prevState.activePlayerCount < MIN_PLAYER_COUNT_TO_PLAY)
                 throw FlowException("You need at least $MIN_PLAYER_COUNT_TO_PLAY to play")

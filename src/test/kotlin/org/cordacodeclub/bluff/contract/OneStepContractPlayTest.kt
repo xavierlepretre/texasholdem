@@ -256,7 +256,7 @@ class OneStepContractPlayTest {
                 input(OneStepContract.ID, validBlind2State)
                 output(OneStepContract.ID, validPlayState.copy(roundType = BettingRound.BLIND_BET_2))
                 command(listOf(player2.publicKey), OneStepContract.Commands.Play())
-                failsWith("ound bet status should be a play one")
+                failsWith("The expected next round type is not there")
             }
         }
     }
@@ -279,7 +279,7 @@ class OneStepContractPlayTest {
                     )
                 )
                 command(listOf(player2.publicKey), OneStepContract.Commands.Play())
-                failsWith("Only the currentPlayer should have a new move, unless it is a recurring roundType")
+                failsWith("Only the currentPlayer should have a new move, unless it is the same roundType")
             }
         }
     }
@@ -374,7 +374,7 @@ class OneStepContractPlayTest {
                     )
                 )
                 command(listOf(player2.publicKey), OneStepContract.Commands.Play())
-                failsWith("Only the currentPlayer should have a new move, unless it is a recurring roundType")
+                failsWith("Only the currentPlayer should have a new move, unless it is the same roundType")
             }
         }
     }
@@ -467,6 +467,32 @@ class OneStepContractPlayTest {
                 ))
                 command(listOf(player1.publicKey), OneStepContract.Commands.Play())
                 failsWith("currentPlayer should sign off the played action")
+            }
+        }
+    }
+
+    @Test
+    fun `Play transaction fails when the player plays on a done river`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState0.copy(amount = 20))
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, potState2.copy(amount = 20))
+                output(TokenContract.ID, potState0.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validPlayState.copy(
+                    roundType = BettingRound.RIVER,
+                    currentPlayerIndex = 1,
+                    players = withActions(PlayerAction.Call, PlayerAction.Call, PlayerAction.Call)
+                ))
+                output(OneStepContract.ID, validPlayState.copy(
+                    roundType = BettingRound.RIVER,
+                    players = withActions(PlayerAction.Call, PlayerAction.Call, PlayerAction.Call)
+                ))
+                command(listOf(player2.publicKey), OneStepContract.Commands.Play())
+                failsWith("The expected next round type is not there")
             }
         }
     }

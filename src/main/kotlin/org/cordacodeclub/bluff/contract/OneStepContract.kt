@@ -94,10 +94,6 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 areConstantsConserved(inputRound, outputRound)
                 isProgressionValid(inputRound, outputRound)
-                "The previous round bet status should not be ${inputRound.roundType}" using
-                        (inputRound.roundType.let {
-                            it == BettingRound.BLIND_BET_2 || (it != BettingRound.RIVER && it.isPlay)
-                        })
                 "The round bet status should be a play one" using (outputRound.roundType.isPlay)
                 "Only the player should bet tokens" using (inputTokens.keys.let {
                     it.size == 0 || it == setOf(outputRound.currentPlayer)
@@ -139,6 +135,7 @@ class OneStepContract : Contract {
                     (input.players.map { it.player } == output.players.map { it.player })
             "The folded players should stay folded" using
                     (output.players.foldedParties().containsAll(input.players.foldedParties()))
+            "The expected next round type is not there" using (input.nextRoundTypeOrNull == output.roundType)
         }
 
     fun isProgressionValid(input: RoundState, output: RoundState) = requireThat {
