@@ -89,6 +89,17 @@ class PlayOneStepFlowTest {
         network.stopNodes()
     }
 
+    private fun SignedTransaction.thenPlay(
+        who: StartedMockNode,
+        action: PlayerAction,
+        addAmount: Long
+    ): SignedTransaction {
+        val flow = PlayOneStepFlow.Initiator(this.id, action, addAmount)
+        val future = who.startFlow(flow)
+        network.runNetwork()
+        return future.getOrThrow()
+    }
+
     @Test
     fun `Cannot create PlayOneStepFlow with a Missing action`() {
         assertFailsWith<FlowException>("You cannot miss an action") {
@@ -156,25 +167,18 @@ class PlayOneStepFlowTest {
 
     @Test
     fun `PlayOneStepFlow fails with wrong roundType in previous transaction`() {
-        val prevFlow = PlayOneStepFlow.Initiator(blindBet1Tx.id, PlayerAction.Raise, 8)
-        val prevFuture = player1Node.startFlow(prevFlow)
+        val flow = PlayOneStepFlow.Initiator(blindBet1Tx.id, PlayerAction.Raise, 8)
+        val future = player1Node.startFlow(flow)
         network.runNetwork()
-//        val signedTx = prevFuture.getOrThrow()
-//        val flow = BlindBet2OneStepFlow.Initiator(signedTx.id, 4)
-//        val future = player1Node.startFlow(flow)
-//        network.runNetwork()
         assertFailsWith<FlowException>("This flow does not work for ${BettingRound.BLIND_BET_2}") {
-            prevFuture.getOrThrow()
+            future.getOrThrow()
         }
     }
 
     @Test
     fun `SignedTransaction is signed by player`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Raise, 8)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Raise, 8)
 
-        val signedTx = future.getOrThrow()
         signedTx.sigs.map { it.by }.toSet().also {
             assertFalse(it.contains(dealer.owningKey))
             assertFalse(it.contains(player0.owningKey))
@@ -186,11 +190,8 @@ class PlayOneStepFlowTest {
 
     @Test
     fun `SignedTransaction has token inputs from current player only`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Raise, 7)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Raise, 7)
 
-        val signedTx = future.getOrThrow()
         val sum = signedTx.tx.inputs.map {
             player2Node.services.toStateAndRef<ContractState>(it).state.data
         }.filter {
@@ -207,11 +208,8 @@ class PlayOneStepFlowTest {
 
     @Test
     fun `SignedTransaction has 3 outputs of pot TokenState`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Raise, 6)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Raise, 6)
 
-        val signedTx = future.getOrThrow()
         val pots = signedTx.tx.outputsOfType<TokenState>().onEach {
             assertEquals(minter, it.minter)
         }.mapPartyToSum()
@@ -223,23 +221,52 @@ class PlayOneStepFlowTest {
 
     @Test
     fun `SignedTransaction is received by all players and dealer`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Call, 0)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Call, 0)
 
-        val signedTx = future.getOrThrow()
         for (node in listOf(dealerNode, player0Node, player2Node, player3Node, player1Node)) {
             assertEquals(signedTx, node.services.validatedTransactions.getTransaction(signedTx.id))
         }
     }
 
     @Test
-    fun `SignedTransaction has expected output of RoundState and TokenState on Call`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Call, 0)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+    fun `SignedTransaction has expected output of RoundState and TokenState on Fold`() {
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Fold, 0)
 
-        val signedTx = future.getOrThrow()
+        val outputs = signedTx.tx.outputsOfType<RoundState>()
+        assertEquals(1, outputs.size)
+        val deckRootHash = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }.single()
+        assertEquals(
+            RoundState(
+                minter = minter,
+                dealer = dealer,
+                deckRootHash = deckRootHash,
+                roundType = BettingRound.PRE_FLOP,
+                currentPlayerIndex = 2,
+                players = listOf(
+                    PlayedAction(player0, PlayerAction.Missing),
+                    PlayedAction(player1, PlayerAction.Missing),
+                    PlayedAction(player2, PlayerAction.Fold),
+                    PlayedAction(player3, PlayerAction.Missing)
+                )
+            ),
+            outputs.single()
+        )
+        val tokensIn = signedTx.tx.inputs
+            .map { player2Node.services.toStateAndRef<ContractState>(it).state.data }
+            .filter { it is TokenState }
+            .map { it as TokenState }
+        assertEquals(2, tokensIn.filter { it.isPot }.size)
+        val myTokens = tokensIn.filter { !it.isPot }
+        assertEquals(0, myTokens.size)
+        assertTrue(signedTx.tx.outputsOfType<TokenState>().all { it.minter == minter && it.isPot })
+    }
+
+    @Test
+    fun `SignedTransaction has expected output of RoundState and TokenState on Call`() {
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Call, 0)
+
         val outputs = signedTx.tx.outputsOfType<RoundState>()
         assertEquals(1, outputs.size)
         val deckRootHash = dealerNode.transaction {
@@ -274,11 +301,8 @@ class PlayOneStepFlowTest {
 
     @Test
     fun `SignedTransaction has expected output of RoundState on Raise`() {
-        val flow = PlayOneStepFlow.Initiator(blindBet2Tx.id, PlayerAction.Raise, 8)
-        val future = player2Node.startFlow(flow)
-        network.runNetwork()
+        val signedTx = blindBet2Tx.thenPlay(player2Node, PlayerAction.Raise, 8)
 
-        val signedTx = future.getOrThrow()
         val outputs = signedTx.tx.outputsOfType<RoundState>()
         assertEquals(1, outputs.size)
         val deckRootHash = dealerNode.transaction {
@@ -308,6 +332,125 @@ class PlayOneStepFlowTest {
         val myTokens = tokensIn.filter { !it.isPot }
         assertTrue(myTokens.all { it.minter == minter && it.owner == player2 })
         assertEquals(12L, myTokens.map { it.amount }.sum())
+        assertTrue(signedTx.tx.outputsOfType<TokenState>().all { it.minter == minter && it.isPot })
+    }
+
+    @Test
+    fun `SignedTransaction has expected output of RoundState on Fold by small blind bettor`() {
+        val signedTx = blindBet2Tx
+            .thenPlay(player2Node, PlayerAction.Fold, 0)
+            .thenPlay(player3Node, PlayerAction.Call, 0)
+            .thenPlay(player0Node, PlayerAction.Fold, 0)
+
+        val outputs = signedTx.tx.outputsOfType<RoundState>()
+        assertEquals(1, outputs.size)
+        val deckRootHash = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }.single()
+        assertEquals(
+            RoundState(
+                minter = minter,
+                dealer = dealer,
+                deckRootHash = deckRootHash,
+                roundType = BettingRound.PRE_FLOP,
+                currentPlayerIndex = 0,
+                players = listOf(
+                    PlayedAction(player0, PlayerAction.Fold),
+                    PlayedAction(player1, PlayerAction.Missing),
+                    PlayedAction(player2, PlayerAction.Fold),
+                    PlayedAction(player3, PlayerAction.Call)
+                )
+            ),
+            outputs.single()
+        )
+        val tokensIn = signedTx.tx.inputs
+            .map { player2Node.services.toStateAndRef<ContractState>(it).state.data }
+            .filter { it is TokenState }
+            .map { it as TokenState }
+        assertEquals(3, tokensIn.filter { it.isPot }.size)
+        val myTokens = tokensIn.filter { !it.isPot }
+        assertEquals(0, myTokens.size)
+        assertTrue(signedTx.tx.outputsOfType<TokenState>().all { it.minter == minter && it.isPot })
+    }
+
+    @Test
+    fun `SignedTransaction has expected output of RoundState on Call by small blind bettor`() {
+        val signedTx = blindBet2Tx
+            .thenPlay(player2Node, PlayerAction.Fold, 0)
+            .thenPlay(player3Node, PlayerAction.Call, 0)
+            .thenPlay(player0Node, PlayerAction.Call, 0)
+
+        val outputs = signedTx.tx.outputsOfType<RoundState>()
+        assertEquals(1, outputs.size)
+        val deckRootHash = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }.single()
+        assertEquals(
+            RoundState(
+                minter = minter,
+                dealer = dealer,
+                deckRootHash = deckRootHash,
+                roundType = BettingRound.PRE_FLOP,
+                currentPlayerIndex = 0,
+                players = listOf(
+                    PlayedAction(player0, PlayerAction.Call),
+                    PlayedAction(player1, PlayerAction.Missing),
+                    PlayedAction(player2, PlayerAction.Fold),
+                    PlayedAction(player3, PlayerAction.Call)
+                )
+            ),
+            outputs.single()
+        )
+        val tokensIn = signedTx.tx.inputs
+            .map { player2Node.services.toStateAndRef<ContractState>(it).state.data }
+            .filter { it is TokenState }
+            .map { it as TokenState }
+        assertEquals(3, tokensIn.filter { it.isPot }.size)
+        val myTokens = tokensIn.filter { !it.isPot }
+        assertEquals(0, myTokens.size)
+        assertTrue(signedTx.tx.outputsOfType<TokenState>().all { it.minter == minter && it.isPot })
+    }
+
+    @Test
+    fun `SignedTransaction has expected output of RoundState when landing on Flop`() {
+        val signedTx = blindBet2Tx
+            .thenPlay(player2Node, PlayerAction.Fold, 0).also { println("xav 1") }
+            .thenPlay(player3Node, PlayerAction.Raise, 2).also { println("xav 2") }
+            .thenPlay(player0Node, PlayerAction.Call, 0).also { println("xav 3") }
+            .thenPlay(player1Node, PlayerAction.Call, 0).also { println("xav 4") }
+            .thenPlay(player3Node, PlayerAction.Call, 0).also { println("xav 5") }
+            // Entering Flop
+            .thenPlay(player0Node, PlayerAction.Raise, 1).also { println("xav 6") }
+
+        val outputs = signedTx.tx.outputsOfType<RoundState>()
+        assertEquals(1, outputs.size)
+        val deckRootHash = dealerNode.transaction {
+            dealerNode.services.cordaService(CardDeckDatabaseService::class.java).getTopDeckRootHashes(1)
+        }.single()
+        assertEquals(
+            RoundState(
+                minter = minter,
+                dealer = dealer,
+                deckRootHash = deckRootHash,
+                roundType = BettingRound.FLOP,
+                currentPlayerIndex = 0,
+                players = listOf(
+                    PlayedAction(player0, PlayerAction.Raise),
+                    PlayedAction(player1, PlayerAction.Missing),
+                    PlayedAction(player2, PlayerAction.Fold),
+                    PlayedAction(player3, PlayerAction.Missing)
+                )
+            ),
+            outputs.single()
+        )
+        val tokensIn = signedTx.tx.inputs
+            .map { player0Node.services.toStateAndRef<ContractState>(it).state.data }
+            .filter { it is TokenState }
+            .map { it as TokenState }
+        assertEquals(3, tokensIn.filter { it.isPot }.size)
+        val myTokens = tokensIn.filter { !it.isPot }
+        assertTrue(myTokens.all { it.minter == minter && it.owner == player0 })
+        assertEquals(1L, myTokens.map { it.amount }.sum())
         assertTrue(signedTx.tx.outputsOfType<TokenState>().all { it.minter == minter && it.isPot })
     }
 }

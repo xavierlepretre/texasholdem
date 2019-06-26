@@ -14,4 +14,4 @@ data class PlayedAction(val player: Party, val action: PlayerAction) {
     }
 }
 
-fun List<PlayedAction>.foldedParties() = filter { it.action == PlayerAction.Fold }.map { it.player }
+fun List<PlayedAction>.foldedParties() = filter { it.action == PlayerAction.Fold }.map { it.player }.toSet()

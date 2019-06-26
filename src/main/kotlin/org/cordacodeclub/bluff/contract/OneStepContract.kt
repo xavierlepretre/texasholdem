@@ -138,7 +138,7 @@ class OneStepContract : Contract {
             "The player parties should not change" using
                     (input.players.map { it.player } == output.players.map { it.player })
             "The folded players should stay folded" using
-                    (output.players.foldedParties().toSet().containsAll(input.players.foldedParties().toSet()))
+                    (output.players.foldedParties().containsAll(input.players.foldedParties()))
         }
 
     fun isProgressionValid(input: RoundState, output: RoundState) = requireThat {
@@ -151,18 +151,11 @@ class OneStepContract : Contract {
         "The new currentPlayerIndex should be the previously known as next" using
                 (input.nextActivePlayerIndex == output.currentPlayerIndex)
         val isStartingNewPlayRound = input.roundType != output.roundType && output.roundType.isPlay
-        "Only the currentPlayer should have a new move, unless it is a recurring roundType" using
-                (!isStartingNewPlayRound ||
-                        output.players.foldIndexed(true) { index, all, it ->
-                            all && (it.player == output.currentPlayer ||
-                                    output.players[index].action == PlayerAction.Missing)
-                        })
-        "On a new Play betting round, only one player has not a missing action" using
-                (!isStartingNewPlayRound ||
-                        output.players.all {
-                            if (it.player == output.currentPlayer) it.action != PlayerAction.Missing
-                            else it.action == PlayerAction.Missing
-                        })
+        "Only the currentPlayer should have a new move, unless it is the same roundType" using
+                (!isStartingNewPlayRound || output.players.all { played ->
+                    if (played.player == output.currentPlayer) played.action != PlayerAction.Missing
+                    else played.action.let { it == PlayerAction.Missing || it == PlayerAction.Fold }
+                })
     }
 
     interface Commands : CommandData {

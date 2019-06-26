@@ -42,6 +42,8 @@ object PlayOneStepFlow {
         }
 
         companion object {
+            val MIN_PLAYER_COUNT_TO_PLAY = 2
+
             object FETCHING_PREV_TX : ProgressTracker.Step("Fetching and confirming previous transaction.")
             object COLLECTING_TOKENS : ProgressTracker.Step("Collecting own tokens for blind bet.") {
                 override fun childProgressTracker(): ProgressTracker {
@@ -91,49 +93,58 @@ object PlayOneStepFlow {
                 if (prevState.isRoundDone) prevState.roundType.next()
                 else prevState.roundType
             if (!thisRoundType.isPlay) throw FlowException("This flow does not work for $thisRoundType")
+            if (prevState.activePlayerCount < MIN_PLAYER_COUNT_TO_PLAY)
+                throw FlowException("You need at least $MIN_PLAYER_COUNT_TO_PLAY to play")
             val lastRaise = potTokens.values.max()
                 ?: throw FlowException("Last raise player has no committed pots")
             val yourWager = potTokens[me] ?: 0
             val desiredAmount = addAmount + lastRaise - yourWager
-            val desiredTokens = TokenState(
-                minter = prevState.minter,
-                owner = me,
-                amount = desiredAmount,
-                isPot = false
-            )
 
             progressTracker.currentStep = COLLECTING_TOKENS
             val tokenStates: List<StateAndRef<TokenState>> = when (myAction) {
                 PlayerAction.Fold -> listOf()
-                PlayerAction.Raise, PlayerAction.Call -> subFlow(CollectOwnTokenStateFlow(desiredTokens))
+                PlayerAction.Raise, PlayerAction.Call -> {
+                    if (desiredAmount == 0L) listOf()
+                    else if (0L < desiredAmount) subFlow(
+                        CollectOwnTokenStateFlow(
+                            TokenState(
+                                minter = prevState.minter,
+                                owner = me,
+                                amount = desiredAmount,
+                                isPot = false
+                            )
+                        )
+                    )
+                    else throw FlowException("desiredAmount should never have been negative")
+                }
                 else -> throw FlowException("Should never arrive here $myAction")
             }
-            val tokenNotary = tokenStates.map { it.state.notary }.toSet().singleOrNull()
-                ?: throw FlowException("Did not collect tokens from a single notary")
+            val tokenNotaries = tokenStates.map { it.state.notary }.toSet()
+            if (tokenNotaries.size > 1) throw FlowException("Did not collect states from a single notary")
 
             progressTracker.currentStep = GENERATING_POT_STATES
-            val potStates = potTokens.map {
-                TokenState(
-                    minter = prevState.minter,
-                    owner = it.key,
-                    amount = it.value,
-                    isPot = true
-                )
-            }.plus(tokenStates.map { it.state.data.amount }.sum()
-                .let { sum ->
-                    tokenStates.first().state.data.copy(amount = sum, isPot = true)
-                })
-
+            val potStates = potTokens
+                .let {
+                    val myAmount = (potTokens[me] ?: 0) + tokenStates.map { it.state.data.amount }.sum()
+                    if (0 < myAmount) it.plus(me to myAmount)
+                    else it
+                }
+                .map {
+                    TokenState(minter = prevState.minter, owner = it.key, amount = it.value, isPot = true)
+                }
             val myPlayerIndex = prevState.players.indexOfFirst { it.player == me }
             val playedActions = prevState.players.map {
                 if (it.player == me) PlayedAction(me, myAction)
+                else if (it.action == PlayerAction.Fold) it
                 else if (prevState.isRoundDone) it.copy(action = PlayerAction.Missing)
                 else it
             }
 
             progressTracker.currentStep = GENERATING_TRANSACTION
-            val notary = previousStepTx.notary ?: tokenNotary
-            if (notary != tokenNotary) throw FlowException("Tokens and blindBet1Tx do not have the same notary")
+            val notary = previousStepTx.notary
+                ?: throw FlowException("Previous step should have a notary")
+            if (tokenNotaries.firstOrNull().let { it != null && it != notary })
+                throw FlowException("Tokens and previousTx do not have the same notary")
             val txBuilder = TransactionBuilder(notary = notary)
 
             txBuilder.addCommand(Command(TokenContract.Commands.BetToPot(), me.owningKey))
