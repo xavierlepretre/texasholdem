@@ -24,6 +24,25 @@ class IncompleteCardDeckInfo(
         cardDeckInfo.cards.map { it }
     )
 
+    constructor(
+        cardDeckInfo: CardDeckInfo,
+        onlyPlayers: List<CordaX500Name>,
+        dealer: CordaX500Name,
+        dealerCardsCount: Int
+    ) : this(
+        cardDeckInfo.hashedCards,
+        dealerCardsCount.let { dealerCount ->
+            var dealerRemaining = dealerCount
+            cardDeckInfo.cards.map {
+                if (it.owner == dealer && dealerRemaining > 0) {
+                    dealerRemaining--
+                    it
+                } else if (it.owner in onlyPlayers) it
+                else null
+            }
+        }
+    )
+
     init {
         require(hashedCards.size == cards.size) { "The 2 lists must have the same size" }
         require(cards.foldIndexed(true) { index, all, card ->
@@ -36,14 +55,6 @@ class IncompleteCardDeckInfo(
             deck.hashedCards,
             (0 until HashedCardDeckInfo.DECK_SIZE).map { null as AssignedCard? })
     }
-
-    fun keepOnlyOfOwner(who: CordaX500Name) = IncompleteCardDeckInfo(
-        hashedCards,
-        cards.map {
-            if (it != null && it.owner == who) it
-            else null
-        }
-    )
 
     fun revealOwnedCards(fullDeck: CardDeckInfo, owner: CordaX500Name, count: Int): IncompleteCardDeckInfo {
         var remaining = count

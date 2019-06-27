@@ -46,6 +46,22 @@ class IncompleteCardDeckInfoTest {
     }
 
     @Test
+    fun `Constructor with player list hides expected cards`() {
+        val deck = IncompleteCardDeckInfo(fullDeck, listOf(player1), dealer0, 12)
+        assertEquals(0, deck.cards.count { it != null && it.owner == player0 })
+        assertEquals(HashedCardDeckInfo.CARDS_PER_PLAYER, deck.cards.count { it != null && it.owner == player1 })
+        assertEquals(0, deck.cards.count { it != null && it.owner == player2 })
+        assertEquals(0, deck.cards.count { it != null && it.owner == player3 })
+        assertEquals(12, deck.cards.count { it != null && it.owner == dealer0 })
+        deck.cards.forEachIndexed { index, it ->
+            if (it != null && it.owner == dealer0) {
+                assertTrue(4 * HashedCardDeckInfo.CARDS_PER_PLAYER <= index)
+                assertTrue(index < 4 * HashedCardDeckInfo.CARDS_PER_PLAYER + 12)
+            }
+        }
+    }
+
+    @Test
     fun `Constructor fails if cards and hashes are not same length`() {
         assertFailsWith<IllegalArgumentException>("The 2 lists must have the same size") {
             IncompleteCardDeckInfo(
