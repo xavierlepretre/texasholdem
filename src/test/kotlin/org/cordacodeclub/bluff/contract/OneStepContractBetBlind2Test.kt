@@ -94,6 +94,40 @@ class OneStepContractBetBlind2Test {
     }
 
     @Test
+    fun `BetBlind2 transaction fails when there is no input RoundState`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                output(OneStepContract.ID, validBlind2State)
+                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("should be one input round state")
+            }
+        }
+    }
+
+    @Test
+    fun `BetBlind2 transaction fails when there is more than one output RoundState`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State)
+                output(OneStepContract.ID, validBlind2State)
+                output(OneStepContract.ID, validBlind2State)
+                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("should be one output round state")
+            }
+        }
+    }
+
+    @Test
     fun `BetBlind2 transaction fails when the minter changes`() {
         ledgerServices.ledger {
             transaction {
@@ -170,6 +204,50 @@ class OneStepContractBetBlind2Test {
     }
 
     @Test
+    fun `BetBlind2 transaction fails when folded player unfolds`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State.copy(
+                    players = withActions(PlayerAction.Fold, PlayerAction.Raise, PlayerAction.Missing)
+                ))
+                output(
+                    OneStepContract.ID, validBlind2State.copy(
+                        players = listOf(
+                            PlayedAction(player0.party, PlayerAction.Missing),
+                            PlayedAction(player1.party, PlayerAction.Raise),
+                            PlayedAction(player2.party, PlayerAction.Call)
+                        )
+                    )
+                )
+                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("folded players should stay folded")
+            }
+        }
+    }
+
+    @Test
+    fun `BetBlind2 transaction fails when the BettingRound is not BlindBet2`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State)
+                output(OneStepContract.ID, validBlind2State.copy(roundType = BettingRound.BLIND_BET_1))
+                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("The expected next round type is not there")
+            }
+        }
+    }
+
+    @Test
     fun `BetBlind2 transaction fails when the wrong current player bets`() {
         ledgerServices.ledger {
             transaction {
@@ -192,23 +270,41 @@ class OneStepContractBetBlind2Test {
     }
 
     @Test
-    fun `BetBlind2 transaction fails when there is no input RoundState`() {
+    fun `BetBlind2 transaction fails when there are no output pot tokens for the bettor`() {
         ledgerServices.ledger {
             transaction {
                 input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 20))
                 output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 20))
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State)
                 output(OneStepContract.ID, validBlind2State)
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("should be one input round state")
+                failsWith("Only the player should bet tokens")
             }
         }
     }
 
     @Test
-    fun `BetBlind2 transaction fails when there is more than one output RoundState`() {
+    fun `BetBlind2 transaction fails when there are output pot tokens for other than the bettor`() {
+        ledgerServices.ledger {
+            transaction {
+                input(TokenContract.ID, potState1)
+                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                input(TokenContract.ID, tokenState3)
+                output(TokenContract.ID, potState1)
+                output(TokenContract.ID, potState2.copy(amount = 20))
+                output(TokenContract.ID, potState3)
+                command(listOf(player2.publicKey, player3.publicKey), TokenContract.Commands.BetToPot())
+                input(OneStepContract.ID, validBlind1State)
+                output(OneStepContract.ID, validBlind2State)
+                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("Only the player should bet tokens")
+            }
+        }
+    }
+
+    @Test
+    fun `BetBlind2 transaction fails when the other players do not have a Missing action`() {
         ledgerServices.ledger {
             transaction {
                 input(TokenContract.ID, potState1)
@@ -217,27 +313,30 @@ class OneStepContractBetBlind2Test {
                 output(TokenContract.ID, potState2.copy(amount = 20))
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State)
-                output(OneStepContract.ID, validBlind2State)
-                command(listOf(dealer0.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("should be one output round state")
+                output(
+                    OneStepContract.ID, validBlind2State.copy(
+                        players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Call)
+                    )
+                )
+                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
+                failsWith("other players should have a missing action")
             }
         }
     }
 
     @Test
-    fun `BetBlind2 transaction fails when the BettingRound is not BlindBet2`() {
+    fun `BetBlind2 transaction fails when the second player bet less than the first`() {
         ledgerServices.ledger {
             transaction {
                 input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 20))
+                input(TokenContract.ID, tokenState2.copy(amount = 19))
                 output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 20))
+                output(TokenContract.ID, potState2.copy(amount = 19))
                 command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
                 input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State.copy(roundType = BettingRound.BLIND_BET_1))
+                output(OneStepContract.ID, validBlind2State)
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("The expected next round type is not there")
+                failsWith("second blind bet should be at or above the first")
             }
         }
     }
@@ -298,78 +397,6 @@ class OneStepContractBetBlind2Test {
                 )
                 command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
                 failsWith("played action should reflect whether there was a raise")
-            }
-        }
-    }
-
-    @Test
-    fun `BetBlind2 transaction fails when the other players do not have a Missing action`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 20))
-                output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 20))
-                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(
-                    OneStepContract.ID, validBlind2State.copy(
-                        players = withActions(PlayerAction.Call, PlayerAction.Raise, PlayerAction.Call)
-                    )
-                )
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("other players should have a missing action")
-            }
-        }
-    }
-
-    @Test
-    fun `BetBlind2 transaction fails when the second player bet less than the first`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 19))
-                output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 19))
-                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State)
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("second blind bet should be at or above the first")
-            }
-        }
-    }
-
-    @Test
-    fun `BetBlind2 transaction fails when there are no output pot tokens for the bettor`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState1)
-                command(listOf(player2.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State)
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("Only the player should bet tokens")
-            }
-        }
-    }
-
-    @Test
-    fun `BetBlind2 transaction fails when there are output pot tokens for other than the bettor`() {
-        ledgerServices.ledger {
-            transaction {
-                input(TokenContract.ID, potState1)
-                input(TokenContract.ID, tokenState2.copy(amount = 20))
-                input(TokenContract.ID, tokenState3)
-                output(TokenContract.ID, potState1)
-                output(TokenContract.ID, potState2.copy(amount = 20))
-                output(TokenContract.ID, potState3)
-                command(listOf(player2.publicKey, player3.publicKey), TokenContract.Commands.BetToPot())
-                input(OneStepContract.ID, validBlind1State)
-                output(OneStepContract.ID, validBlind2State)
-                command(listOf(player2.publicKey), OneStepContract.Commands.BetBlind2())
-                failsWith("Only the player should bet tokens")
             }
         }
     }

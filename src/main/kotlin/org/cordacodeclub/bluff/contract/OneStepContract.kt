@@ -30,6 +30,7 @@ class OneStepContract : Contract {
                 "There should be no input round state" using (inputRounds.isEmpty())
                 "There should be a single output round state" using (outputRounds.size == 1)
                 val outputRound = outputRounds.single()
+                tokensAreOk(outputRound, tx.inputsOfType(), tx.outputsOfType())
                 "The round bet status should be ${BettingRound.BLIND_BET_1}, but it was ${outputRound.roundType}" using
                         (outputRound.roundType == BettingRound.BLIND_BET_1)
                 "Only the player should bet tokens" using (inputTokens.keys == setOf(outputRound.currentPlayer))
@@ -56,6 +57,7 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 areConstantsConserved(inputRound, outputRound)
                 isProgressionValid(inputRound, outputRound)
+                tokensAreOk(outputRound, tx.inputsOfType(), tx.outputsOfType())
                 "The previous round bet status should be ${BettingRound.BLIND_BET_1}, but it is ${inputRound.roundType}" using
                         (inputRound.roundType == BettingRound.BLIND_BET_1)
                 "The round bet status should be ${BettingRound.BLIND_BET_2}, but it is ${outputRound.roundType}" using
@@ -94,6 +96,7 @@ class OneStepContract : Contract {
                 val outputRound = outputRounds.single()
                 areConstantsConserved(inputRound, outputRound)
                 isProgressionValid(inputRound, outputRound)
+                tokensAreOk(outputRound, tx.inputsOfType(), tx.outputsOfType())
                 "The round bet status should be a play one" using (outputRound.roundType.isPlay)
                 "Only the player should bet tokens" using (inputTokens.keys.let {
                     it.size == 0 || it == setOf(outputRound.currentPlayer)
@@ -153,6 +156,13 @@ class OneStepContract : Contract {
                     if (played.player == output.currentPlayer) played.action != PlayerAction.Missing
                     else played.action.let { it == PlayerAction.Missing || it == PlayerAction.Fold }
                 })
+    }
+
+    fun tokensAreOk(roundState: RoundState,
+                    inputTokens: List<TokenState>,
+                    outputTokens: List<TokenState>) = requireThat {
+        "The minter should be the same across the board" using
+                (inputTokens.plus(outputTokens).map { it.minter }.toSet() == setOf(roundState.minter))
     }
 
     interface Commands : CommandData {
