@@ -25,15 +25,15 @@ class IncompleteCardDeckInfo(
     )
 
     constructor(
-        cardDeckInfo: CardDeckInfo,
+        fullDeck: CardDeckInfo,
         onlyPlayers: List<CordaX500Name>,
         dealer: CordaX500Name,
         dealerCardsCount: Int
     ) : this(
-        cardDeckInfo.hashedCards,
+        fullDeck.hashedCards,
         dealerCardsCount.let { dealerCount ->
             var dealerRemaining = dealerCount
-            cardDeckInfo.cards.map {
+            fullDeck.cards.map {
                 if (it.owner == dealer && dealerRemaining > 0) {
                     dealerRemaining--
                     it

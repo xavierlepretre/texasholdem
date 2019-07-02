@@ -12,12 +12,9 @@ data class CardDeckInfo(val cards: List<AssignedCard>) : HashedCardDeckInfo(card
 
     companion object {
 
-        fun createShuffledWith(players: List<CordaX500Name>, dealer: CordaX500Name) =
+        fun createWith(cards: List<Card>, players: List<CordaX500Name>, dealer: CordaX500Name) =
             with(Random(System.nanoTime())) {
-                // TODO better shuffling algorithm?
-                Card.newDeck().shuffled().map {
-                    it to nextBytes(SALT_LENGTH)
-                }
+                cards.map { it to nextBytes(SALT_LENGTH) }
             }.let { saltedCards ->
                 saltedCards.mapIndexed { index, pair ->
                     // Assign cards
@@ -31,6 +28,9 @@ data class CardDeckInfo(val cards: List<AssignedCard>) : HashedCardDeckInfo(card
             }.let {
                 CardDeckInfo(it)
             }
+
+        fun createShuffledWith(players: List<CordaX500Name>, dealer: CordaX500Name) =
+            createWith(Card.newDeck().shuffled(), players, dealer)
     }
 
     fun getPlayerCards(playerIndex: Int) = getPlayerCardIndices(playerIndex).map {
