@@ -1,5 +1,8 @@
 package org.cordacodeclub.grom356
 
+import net.corda.core.serialization.CordaSerializable
+
+@CordaSerializable
 class Hand private constructor(
     val category: Category,
     val cards: List<Card>,
@@ -396,7 +399,7 @@ class Hand private constructor(
         }
     }
 
-    override fun compareTo(other: Hand) = other.value - value
+    override fun compareTo(other: Hand) = value - other.value
 
     override fun toString() = "$category - $cards ($value)"
 }
