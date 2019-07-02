@@ -31,3 +31,10 @@ fun List<PlayerHandByIndex>.sortDescendingWith(deck: IncompleteCardDeckInfo, dea
             .let { set -> Hand.eval(set) }
             .let { hand -> PlayerHand(it.player, hand) }
     }.sortedByDescending { it.hand }
+
+fun List<PlayerHand>.getWinners() = fold(listOf<PlayerHand>()) { list, element ->
+    val currentTop = if(list.size > 0) list[0].hand.value else -1
+    if (element.hand.value > currentTop) listOf(element)
+    else if (element.hand.value == currentTop) list.plus(element)
+    else list
+}

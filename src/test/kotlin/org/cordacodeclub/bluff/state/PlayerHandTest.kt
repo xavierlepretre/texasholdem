@@ -11,6 +11,7 @@ import org.cordacodeclub.grom356.Card
 import org.junit.Before
 import org.junit.Test
 import kotlin.random.Random
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class PlayerHandTest {
@@ -63,7 +64,8 @@ class PlayerHandTest {
             PlayerHandByIndex(player1.party, listOf(2, 3, 8, 9, 10))
         )
         val sorted = playerHands.sortDescendingWith(validDeck, dealer0.name)
-        println(sorted)
+        assertEquals(player0.party, sorted[0].player)
+        assertEquals(player1.party, sorted[1].player)
     }
 
     @Test
@@ -82,5 +84,16 @@ class PlayerHandTest {
             PlayerHandByIndex(player1.party, listOf(2, 3, 10))
         )
         assertFailsWith(IllegalArgumentException::class) { playerHands.sortDescendingWith(validDeck, dealer0.name) }
+    }
+
+    @Test
+    fun `getWinners returns correctly`() {
+        val playerHands = listOf(
+            PlayerHandByIndex(player0.party, listOf(0, 1, 8, 9, 10)),
+            PlayerHandByIndex(player1.party, listOf(2, 3, 8, 9, 10))
+        )
+        val winners = playerHands.sortDescendingWith(validDeck, dealer0.name).getWinners()
+        assertEquals(1, winners.size)
+        assertEquals(player0.party, winners[0].player)
     }
 }
